@@ -33,7 +33,7 @@ void free_pmc(PMC* pmc) {
 
 /* = Releveur d'erreur celeste = */
 PMC* error_raiser(char* error_type, PMC* pmc, int val){
-    if(val != 0) printf("Erreur : %s %d\n", error_type, i);
+    if(val != 0) printf("Erreur : %s %d\n", error_type, val);
     else printf("Erreur : %s.\n", error_type);
     
     free_pmc(pmc);
@@ -65,18 +65,18 @@ PMC* init_pmc(int* layers_sizes, int nb_layers, double learning_rate) {
     pmc->biases  = malloc(pmc->nb_weights * sizeof(double*));
     if(pmc->weights == NULL || pmc->biases == NULL) return error_raiser("Erreur allocation weights/biases", pmc, 0);
     
-    for(int i = 0; i < nb_weights, i++){
+    for(int i = 0; i < pmc->nb_weights; i++){
         int rows = layers_sizes[i];
         int cols = layers_sizes[i + 1];
     
         pmc->weights[i] = malloc(rows * cols * sizeof(double));
         pmc->biases[i]  = malloc(cols * sizeof(double));
-        if (mlp->weights[i] == NULL || mlp->biases[i] == NULL) return error_raiser("Erreur allocation couche", pmc, i);
+        if (pmc->weights[i] == NULL || pmc->biases[i] == NULL) return error_raiser("Erreur allocation couche", pmc, i);
     
-        for(j = 0; j < rows * cols; j++){
+        for(int j = 0; j < rows * cols; j++){
             pmc->weights[i][j] = random_double(-0.5,0.5);
         }
-        for(j = 0; j < cols; j++){
+        for(int j = 0; j < cols; j++){
             pmc->biases[i][j] = 0.0;
         }
     }
