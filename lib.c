@@ -2,87 +2,107 @@
 #include <stdlib.h>
 #include <math.h>
 
+/* ===== DEBUT DES ENNUIS ===== */
+/* = Struc PMC v2 = */
+typedef struct {
+    int nb_layers;           // Nb couches (pour malloc)
+    int nb_weights;         // Nb poids (pour malloc)
+    int* layers_sizes;     // Tab de taille de couches
+    
+    float learning_rate; // Suffisement clair 
+    
+    double** weights;  // Matrices de poids
+    double** biases;  // Matrices de biais
+} PMC;
 
+/* ===== UTILITAIRES ===== */
+/* = Liberateur Judiciaire = */
+void free_pmc(PMC* pmc) {
+    if (pmc == NULL) return;
 
+    for (int i = 0; i < pmc->nb_weights; i++) {
+        free(pmc->weights[i]);
+        free(pmc->biases[i]);
+    }
 
-typedef struct
-{
-    // Couches
-    double inputLayers[2];
-    double hiddenLayers[2];
-    double outputLayers;
-
-    // Poids
-    double w_input_hidden[2][2];
-    double w_hidden_output[2];
-
-    // Biais
-    double b_hiddenLayers[2];
-    double b_outputLayers;
-
-} Mlp;
-
-void init_mlp(Mlp *mlp)
-{
-    mlp->w_input_hidden[0][0] =  0.5;    //
-    mlp->w_input_hidden[0][1] = -0.3;   //  |.5,-.3|
-    mlp->w_input_hidden[1][0] =  0.8;  //   |.8, .2|
-    mlp->w_input_hidden[1][1] =  0.2; //
-
-    mlp->w_hidden_output[0] =  0.4;
-    mlp->w_hidden_output[1] = -0.7;
-
-    mlp->b_hiddenLayers[0] = 0.1;
-    mlp->b_hiddenLayers[1] = 0.1;
-    mlp->b_outputLayers   = 0.1;
+    free(pmc->weights);
+    free(pmc->biases);
+    free(pmc->layers_sizes);
+    free(pmc);
 }
 
-// Fonction d'activation -> Sigmoid
-double sigmoid(double x)
-{
-    return 1/(1 + exp(-x));
+/* = Releveur d'erreur celeste = */
+PMC* error_raiser(char* error_type, PMC* pmc, int val){
+    if(val != 0) printf("Erreur : %s %d\n", error_type, i);
+    else printf("Erreur : %s.\n", error_type);
+    
+    free_pmc(pmc);
+    return NULL;
 }
 
-void propagation_avant(Mlp *mlp, double x1, double x2)
-{
-    mlp->inputLayers[0]=x1;
-    mlp->inputLayers[0]=x2;
+/* = Donneur généreur de double random = */
+double random_double(double a, double b) {
+    return a + (b - a) * ((double)rand() / RAND_MAX);
+}
 
-    //nb de couches caché
-    for (int i = 0; i < 2; i++)
-    {
-        double z = 0;
-
-        for (int j = 0; j < 2; j++)
-        {
-            // j = neurone de provenant | i = neurone de destination
-            z += mlp->inputLayers[j]*mlp->w_input_hidden[j][i];
+/* ===== CAUSE DE TOUTES NOS PEINES ===== */
+/* = Init PMC = */
+PMC* init_pmc(int* layers_sizes, int nb_layers, double learning_rate) {
+    PMC* pmc = malloc(sizeof(PMC));
+    if(pmc == NULL) return error_raiser("Erreur allocation PMC", pmc, 0);
+    
+    pmc->nb_layers     = nb_layers;
+    pmc->nb_weights    = nb_layers - 1; // pas de poids sur la derniere couche (sortie)
+    pmc->learning_rate = learning_rate;
+    
+    pmc->layers_sizes = malloc(nb_layers * sizeof(int));
+    if(layers_sizes == NULL) return error_raiser("Erreur allocation layers_sizes", pmc, 0);
+    for(int i = 0; i < nb_layers; i++){
+        pmc->layers_sizes[i] = layers_sizes[i];
+    }
+    
+    pmc->weights = malloc(pmc->nb_weights * sizeof(double*));
+    pmc->biases  = malloc(pmc->nb_weights * sizeof(double*));
+    if(pmc->weights == NULL || pmc->biases == NULL) return error_raiser("Erreur allocation weights/biases", pmc, 0);
+    
+    for(int i = 0; i < nb_weights, i++){
+        int rows = layers_sizes[i];
+        int cols = layers_sizes[i + 1];
+    
+        pmc->weights[i] = malloc(rows * cols * sizeof(double));
+        pmc->biases[i]  = malloc(cols * sizeof(double));
+        if (mlp->weights[i] == NULL || mlp->biases[i] == NULL) return error_raiser("Erreur allocation couche", pmc, i);
+    
+        for(j = 0; j < rows * cols; j++){
+            pmc->weights[i][j] = random_double(-0.5,0.5);
         }
-
-        z += mlp->b_hiddenLayers[i];
-        mlp->hiddenLayers[i] = sigmoid(z);
+        for(j = 0; j < cols; j++){
+            pmc->biases[i][j] = 0.0;
+        }
     }
-
-    double z_output = 0;
-    for (int i = 0; i < 2; i++)
-    {
-        z_output += mlp->hiddenLayers[i] * mlp->w_hidden_output[i];
-    }
-
-    z_output += mlp->b_outputLayers;
-    mlp->outputLayers = sigmoid(z_output);
+    
+    return pmc;
 }
 
-int main(void)
-{
-    Mlp mlp;
+/* = Fonction.s d'activation.s = */
+double act_sigmoid(double z){
+    return 1 / (1 + exp(-z));
+}
+double act_sigmoid_derivative(double sigmoid_res){
+    return sigmoid_res * (1 - sigmoid_res);
+}
 
-    init_mlp(&mlp);
-    propagation_avant(&mlp, 1.0, 0.0);
+/* = Erreur quadratique moyenne (MSE) = */
 
-    printf("H1    : %f\n", mlp.hiddenLayers[0]);
-    printf("H2    : %f\n", mlp.hiddenLayers[1]);
-    printf("Out   : %f\n", mlp.outputLayers);
+/* = EN AVANT = */
 
+/* = EN ARRIERE = */
+
+int main() {
+    //init du pmc
+    
+    //bricoles a faire
+    
+    //free_pmc(pmc);
     return 0;
 }
