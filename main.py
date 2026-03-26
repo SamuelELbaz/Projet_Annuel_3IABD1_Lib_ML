@@ -76,7 +76,7 @@ def calculer_similarite(img1, img2):
 def trouver_qualite_optimale(img, chemin_sortie, qualites=QUALITES_A_TESTER, similarite_min=SIMILARITE_MIN):
     meilleure_qualite = qualites[0]
     meilleure_taille = float('inf')
-    meilleure_similarite = 1.0
+    meilleure_similarite = 0.0
     
     img_ref = img.convert("RGB") if img.mode != 'RGB' else img
     
@@ -97,10 +97,15 @@ def trouver_qualite_optimale(img, chemin_sortie, qualites=QUALITES_A_TESTER, sim
             meilleure_taille = taille_bytes
             meilleure_similarite = similarite
     
-    try:
+    if meilleure_taille == float('inf'):
+        meilleure_qualite = qualites[0]
         img_ref.save(chemin_sortie, quality=meilleure_qualite, optimize=True)
-    except OSError:
-        img_ref.convert("RGB").save(chemin_sortie, quality=meilleure_qualite, optimize=True)
+        meilleure_taille = chemin_sortie.stat().st_size
+        img_test = Image.open(chemin_sortie)
+        meilleure_similarite = calculer_similarite(img_ref, img_test)
+        img_test.close()
+    else:
+        img_ref.save(chemin_sortie, quality=meilleure_qualite, optimize=True)
     
     return meilleure_qualite, meilleure_taille, meilleure_similarite
 
@@ -131,15 +136,11 @@ def compresser_image(image_name, redimensionner=True, taille_cible=TAILLE_CIBLE,
 
     infos = {
         'fichier': image_path.name,
-        'taille_orig': taille_orig,
         'taille_orig_bytes': taille_orig_bytes,
-        'taille_redim': img.size,
         'taille_finale_bytes': taille_finale_bytes,
-        'qualite_jpg': quality,
-        'ratio_compression': ratio_compression,
         'reduction_percent': reduction,
-        'similarite': similarite,
-        'chemin_sortie': str(saved_path)
+        'qualite_jpg': quality,
+        'similarite': similarite
     }
 
     return infos
