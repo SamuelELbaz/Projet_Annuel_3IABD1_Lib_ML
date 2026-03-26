@@ -1,6 +1,6 @@
 # Préparation des Données d'Images
 
-Script Python pour uniformiser les images: redimensionnement et compression.
+Script Python pour redimensionner et compresser les images.
 
 ## Utilisation
 
@@ -8,62 +8,20 @@ Script Python pour uniformiser les images: redimensionnement et compression.
 python3 main.py
 ```
 
-Images de `_in/` → résultats dans `_out/`
+Ajoute images dans `_in/`. Résultats dans `_out/`.
+
+## Fonctionnalités
+
+- Redimensionne à **224×224 pixels** exactement
+- Préserve le ratio d'aspect avec padding blanc
+- Compresse en JPEG avec qualité optimale
+- Teste 9 niveaux de qualité pour minimiser la taille
 
 ## Configuration
 
-`main.py`: `TAILLE_CIBLE = (224, 224)`
-
-## Résultats
-
-Test 5 images déchets:
-- Init: 1.9 MB → Final: 14 KB
-- Compression: 99.3%
-- Similarité: 0.9975 (98% fidèle)
-
-✅ **Redimensionnement intelligent**
-- Préserve le ratio d'aspect
-- Padding blanc automatique
-- Interpolation LANCZOS (haute qualité)
-
-✅ **Compression optimisée**
-- Test de 9 niveaux de qualité JPEG
-- Minimise la taille avec seuil de similarité
-- Chaque image a sa qualité optimale
-
-✅ **Analyse de qualité**
-- Calcul de l'erreur quadratique moyenne (MSE)
-- Score de similarité (0-1)
-- Rapport détaillé par image
-
-✅ **Rapport complet**
-- Barre de progression
-- Statistiques globales
-- Export JSON avec tous les détails
-
-## Exemple de workflow
-
-```bash
-# 1. Préparer les images
-mkdir _in
-cp ~/images/*.jpg _in/
-
-# 2. Compresser
-python3 main.py
-
-# 3. Analyser
-python3 analyse.py
-
-# 4. Résultat
-# Images 224x224 pixels dans _out/
-# Rapport JSON et graphiques générés
+`main.py`:
+```python
+TAILLE_CIBLE = (224, 224)
+QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
+SIMILARITE_MIN = 0.95
 ```
-
-## Groupe
-
-**Groupe: La fine équipe**
-- Roissath
-- Flavien
-- Samumu
-
-
