@@ -94,6 +94,13 @@ def compresser_image(image_name, output_dir="_out"):
 
 
 def compresser_dossier(in_dir="_in", output_dir="_out"):
+    import shutil
+    
+    out_path = Path(output_dir)
+    if out_path.exists():
+        shutil.rmtree(out_path)
+    out_path.mkdir(parents=True, exist_ok=True)
+    
     valid_ext = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
     files = [f for f in Path(in_dir).iterdir() if f.is_file() and f.suffix.lower() in valid_ext]
     
