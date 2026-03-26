@@ -11,7 +11,7 @@ from pathlib import Path
 
 TAILLE_CIBLE = (224, 224)
 QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
-SIMILARITE_MIN = 0.85
+SIMILARITE_MIN = 0.95
 
 
 def get_size_format(b, factor=1024, suffix="B"):
@@ -65,9 +65,12 @@ def calculer_similarite(img1, img2):
     mse = np.mean((arr1 - arr2) ** 2)
     if mse == 0:
         return 1.0
-    max_mse = 10000.0
-    similarite = 1.0 - (mse / max_mse)
-    return max(0.0, min(1.0, similarite))
+    psnr = 20 * np.log10(255.0 / np.sqrt(mse))
+    if psnr >= 50:
+        return 1.0
+    if psnr <= 20:
+        return 0.0
+    return (psnr - 20) / 30.0
 
 
 def trouver_qualite_optimale(img, chemin_sortie, qualites=QUALITES_A_TESTER, similarite_min=SIMILARITE_MIN):
