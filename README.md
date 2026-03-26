@@ -20,8 +20,7 @@ Ajoute images dans `_in/`. Résultats dans `_out/`.
 ## Configuration
 
 `main.py`:
-```python
 TAILLE_CIBLE = (224, 224)
 QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
 SIMILARITE_MIN = 0.95
-```
+

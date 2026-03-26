@@ -105,7 +105,7 @@ def compresser_dossier(in_dir="_in", output_dir="_out"):
     files = [f for f in Path(in_dir).iterdir() if f.is_file() and f.suffix.lower() in valid_ext]
     
     if not files:
-        print(f"Aucune image dans {in_dir}")
+        print(f"Aucuneimage dans {in_dir}")
         return
 
     for img_path in files:
