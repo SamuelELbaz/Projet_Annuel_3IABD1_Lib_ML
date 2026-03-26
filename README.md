@@ -1,52 +1,18 @@
-# Compression d'Images pour ML - PA 3IABD
+# Préparation des Données d'Images
 
-Preprocessing pour normaliser dataset déchets:
-- Redimensionne à **224×224 pixels** exactement
-- Compresse intelligemment avec qualité JPEG optimale
-- Génère rapports JSON détaillés
-
-## Fichiers
-
-- `main.py` - Pipeline de compression
-- `modele_lineaire.py` - Modèle ML pour qualité JPEG
-- `pipeline_optimise.py` - Pipeline avec modèle
-- `analyse.py` - Visualisations
+Script Python pour uniformiser les images: redimensionnement et compression.
 
 ## Utilisation
 
-### Compression simple
 ```bash
 python3 main.py
 ```
 
-### Avec modèle ML
-```bash
-python3 pipeline_optimise.py
-```
-
-### Visualiser résultats
-```bash
-python3 analyse.py
-```
-
-## Dossiers
-
-```
-_in/       Ajouter vos images ici
-_out/      Résultats générés:
-  ├── *.jpg                   (224×224 redimensionnées)
-  ├── rapport_compression.json
-  └── modele_predictions.png
-```
+Images de `_in/` → résultats dans `_out/`
 
 ## Configuration
 
-Dans `main.py`:
-```python
-TAILLE_CIBLE = (224, 224)
-QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
-SIMILARITE_MIN = 0.85
-```
+`main.py`: `TAILLE_CIBLE = (224, 224)`
 
 ## Résultats
 
@@ -100,8 +66,4 @@ python3 analyse.py
 - Flavien
 - Samumu
 
-**Projet:** PA 3IABD 2025-26 - Classification de déchets
 
----
-
-*Date: 25 mars 2026*
