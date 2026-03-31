@@ -43,10 +43,14 @@ def print_loading_bar(val_act:int, nb_total:int, bar_length:int=100,) -> None:
 # --------------------------------------------------------- #
 
 def compress_img(image_name,
-                 new_size_ratio: float = 1, quality: int = 90,
-                 width: int = None, height: int = None,
-                 to_jpg: bool = True, compressed_suf: bool = True,
-                 output_dir: str = "_out") -> None:
+                 new_size_ratio: float = 1.0,
+                 quality: int = 90,
+                 width: int = 224,
+                 height: int = 224,
+                 to_jpg: bool = True,
+                 compressed_suf: bool = True,
+                 output_dir: str = "_out"
+    ) -> None:
 
     image_path = Path(image_name)
     out_dir = Path(output_dir)
@@ -94,7 +98,7 @@ def compress_all_img_in_file(in_dir: Path, output_dir="_out") -> None:
     print_loading_bar(0, nb_total)
 
     for i, img_path in enumerate(files, start=1):
-        compress_img(img_path, new_size_ratio=0.9, quality=1, to_jpg=True, output_dir=output_dir)
+        compress_img(img_path, new_size_ratio=1, quality=1, to_jpg=True, output_dir=output_dir)
         print_loading_bar(i, nb_total)
 
     print()  # (¯\_(ツ)_/¯)
