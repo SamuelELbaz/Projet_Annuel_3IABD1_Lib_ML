@@ -199,7 +199,7 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
     
     // delta = (valeur_activation_sortie - y_true(valeur visé)) * act_sigmoid_derivative(activation_sortie);
     double* delta = malloc(nb_samples * output_layer_size * sizeof(double));
-    if (delta == NULL) return print("Erreur allocation delta");
+    if (delta == NULL) printf("Erreur allocation delta");
     
     for (int s = 0; s < nb_samples; s++){
         // POUR TOUT LES SAMPLES    
@@ -227,7 +227,7 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
     
     for (int i = 0; i < prev_layer_size; i++){
         // Pour tout les neurones de la couche precedente
-        for (int j = 0; j < curr_layer_size; j++{
+        for (int j = 0; j < curr_layer_size; j++){
             // Pour tout les neurones de la couche actuelle (sortie)
             
             double gradient_sum = 0.0;
@@ -352,8 +352,8 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
         
          // Gradients des biais de cette couche
         
-        for (int j = 0; j < curr_layer_size_local; j++) 
-            // Pour chaque neurone de la couche courante{
+        for (int j = 0; j < curr_layer_size_local; j++){
+            // Pour chaque neurone de la couche courante
             
             double delta_sum = 0.0;
             
