@@ -1,3 +1,4 @@
+import csv
 import numpy as np
 from PIL import Image
 from pathlib import Path
@@ -78,6 +79,38 @@ def trouver_qualite_optimale(img, chemin_sortie, qualites=QUALITES_A_TESTER, sim
     return meilleure_qualite, meilleure_taille, meilleure_similarite
 
 
+def extraire_features(image_path):
+    img = Image.open(image_path)
+    arr = np.array(img)
+    
+    r_mean = np.mean(arr[:,:,0])
+    g_mean = np.mean(arr[:,:,1])
+    b_mean = np.mean(arr[:,:,2])
+    
+    return r_mean, g_mean, b_mean
+
+
+def generer_dataset_csv(images_dir, output_csv):
+    images_dir = Path(images_dir)
+    
+    with open(output_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["r_mean", "g_mean", "b_mean", "label"])
+        
+        for img_path in images_dir.iterdir():
+            if img_path.suffix.lower() not in [".jpg", ".png", ".jpeg"]:
+                continue
+            
+            r, g, b = extraire_features(img_path)
+            
+            if "dechet" in img_path.name.lower() or "organique" in img_path.name.lower():
+                label = 1
+            else:
+                label = 0
+            
+            writer.writerow([r, g, b, label])
+
+
 def compresser_image(image_name, output_dir="_out"):
     image_path = Path(image_name)
     out_dir = Path(output_dir)
@@ -123,4 +156,5 @@ if __name__ == "__main__":
         exit(1)
     
     compresser_dossier()
+    generer_dataset_csv("_out", "dataset.csv")
     print("Compression terminée")
