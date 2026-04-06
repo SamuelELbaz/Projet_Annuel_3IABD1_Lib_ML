@@ -11,15 +11,13 @@
 double X[MAX_SAMPLES][MAX_FEATURES];
 int Y[MAX_SAMPLES];
 
-// Paramètres du modèle
-double W[MAX_FEATURES];  // Poids
-double bias = 0.0;       // Biais
-double lr = 0.01;        // Learning rate
+double W[MAX_FEATURES];
+double bias = 0.0;
+double lr = 0.01;
 
-int N = 0;  // Nombre d'échantillons
-int D = 0;  // Nombre de features
+int N = 0;
+int D = 0;
 
-// Prédit la sortie du modèle
 double predict(double *x)
 {
     double y = bias;
@@ -28,29 +26,31 @@ double predict(double *x)
     return y;
 }
 
-// Classification basée sur seuil 0.5
 int classify(double *x)
 {
     return predict(x) >= 0.5 ? 1 : 0;
 }
 
-// Entraînement par descente de gradient
 void train(int epochs)
 {
     for(int e = 0; e < epochs; e++) {
+        double loss = 0.0;
         for(int i = 0; i < N; i++) {
             int pred = classify(X[i]);
             int err = Y[i] - pred;
+            loss += err * err;
 
             for(int j = 0; j < D; j++)
                 W[j] += lr * err * X[i][j];
 
             bias += lr * err;
         }
+        loss /= N;
+        if(e % 10 == 0 || e == epochs - 1)
+            printf("Epoch %d/%d | Loss: %.6f\n", e, epochs - 1, loss);
     }
 }
 
-// Calcule la précision du modèle
 double accuracy()
 {
     int correct = 0;
@@ -61,7 +61,6 @@ double accuracy()
     return (double)correct / N;
 }
 
-// Test 1: Données linéairement séparables
 void test_lineaire()
 {
     printf("\n=== Test dataset lineaire ===\n");
@@ -86,11 +85,10 @@ void test_lineaire()
     bias = 0.0;
 
     train(50);
-
     printf("Accuracy: %.2f%%\n", accuracy() * 100);
+    printf("Poids: W0=%.4f, W1=%.4f | Bias=%.4f\n", W[0], W[1], bias);
 }
 
-// Test 2: Cas KO - données non linéaires
 void test_KO()
 {
     printf("\n=== Test dataset KO (non lineaire) ===\n");
@@ -118,11 +116,10 @@ void test_KO()
     bias = 0.0;
 
     train(50);
-
     printf("Accuracy: %.2f%%\n", accuracy() * 100);
+    printf("Poids: W0=%.4f, W1=%.4f | Bias=%.4f\n", W[0], W[1], bias);
 }
 
-// Test 3: Solution par transformation de features
 void test_transformation()
 {
     printf("\n=== Transformation non lineaire ===\n");
@@ -155,8 +152,8 @@ void test_transformation()
     bias = 0.0;
 
     train(50);
-
     printf("Accuracy: %.2f%%\n", accuracy() * 100);
+    printf("Poids: W0=%.4f, W1=%.4f, W2=%.4f | Bias=%.4f\n", W[0], W[1], W[2], bias);
 }
 
 int main()
