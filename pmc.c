@@ -290,7 +290,6 @@ double pmc_train_all(PMC *pmc, double *inputs, double *answers,
                      int nb_samples, int nb_features, int nb_outputs) {
     double total_loss = 0.0;
 
-    // 1. Accumule les gradients sur tous les exemples
     for (int i = 0; i < nb_samples; i++) {
         double *input  = inputs  + i * nb_features;
         double *answer = answers + i * nb_outputs;
@@ -302,10 +301,9 @@ double pmc_train_all(PMC *pmc, double *inputs, double *answers,
             total_loss += 0.5 * error * error;
         }
 
-        pmc_backward(pmc, answer); // accumule dans d_weights / d_biases
+        pmc_backward(pmc, answer); 
     }
 
-    // 2. Une seule mise à jour avec la moyenne des gradients
     pmc_update(pmc, nb_samples);
 
     return total_loss / (double)nb_samples;
