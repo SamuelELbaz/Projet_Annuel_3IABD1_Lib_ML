@@ -1,0 +1,6 @@
+cmake-build-debug
+data_set
+venv
+.venv
+.jpg
+.exe

@@ -2,113 +2,49 @@
 #include <stdlib.h>
 #include <math.h>
 
- /* ===== DEBUT DES ENNUIS ===== */
-/* = Struc PMC v2 = */
-typedef struct {
-    int nb_layers;           // Nb couches (pour malloc)
-    int nb_weights;         // Nb poids (pour malloc)
-    int* layers_sizes;     // Tab de taille de couches
-    
-    float learning_rate; // Suffisement clair 
-    
-    double** weights;  // Matrices de poids
-    double** biases;  // Matrices de biais
-} PMC;
+#include "lib.h"
+#include "../utils/pmc_utils.h"
+#include "../struct/pmc_struct.h"
 
-  /* ===== UTILITAIRES ===== */
- /* = Liberateur Judiciaire = */
-// Pour le pmc COMPLET
-void free_pmc(PMC* pmc) {
-    if (pmc == NULL) return;
 
-    for (int i = 0; i < pmc->nb_weights; i++) {
-        free(pmc->weights[i]);
-        free(pmc->biases[i]);
-    }
-
-    free(pmc->weights);
-    free(pmc->biases);
-    free(pmc->layers_sizes);
-    free(pmc);
-}
-// pour la matrice contenant les valeurs d'activation des couches
-void free_activations(PMC* pmc, double** activations) {
-    for (int l = 0; l < pmc->nb_layers; l++) {
-        free(activations[l]);
-    }
-}
-
-// pour les matrices de gradients
-void free_gradients(PMC* pmc, double** gradients_weights, double** gradients_biaises){
-    for (int i = 0; i < pmc->nb_weights; i++){
-        free(gradients_weights[i]);
-        free(gradients_biaises[i]);
-    }
-    free(gradients_weights);
-    free(gradients_biaises);
-}
-
- /* = Releveur d'erreur celeste = */
-PMC* error_raiser(char* error_type, PMC* pmc, int val){
-    if(val != 0) printf("Erreur : %s %d\n", error_type, val);
-    else printf("Erreur : %s.\n", error_type);
-    
-    free_pmc(pmc);
-    return NULL;
-}
-
- /* = Donneur généreux de double random = */
-double random_double(double a, double b){
-    return a + (b - a) * ((double)rand() / RAND_MAX);
-}
-
- /* = Allocateur de Gradient intergalactic (supervisé par le grand capitaine flamme) = */
-PMC* alloc_gradients(PMC* pmc, double*** gradients_weights, double*** gradients_biaises) {
-    *gradients_weights = malloc(pmc->nb_weights * sizeof(double*));
-    *gradients_biaises = malloc(pmc->nb_weights * sizeof(double*));
-
-    if (*gradients_weights == NULL || *gradients_biaises == NULL) return error_raiser("Erreur allocation matrices de gradients", pmc, 0);
-
-    for (int l = 0; l < pmc->nb_weights; l++) {
-        int rows = pmc->layers_sizes[l];
-        int cols = pmc->layers_sizes[l + 1];
-
-        (*gradients_weights)[l] = malloc(rows * cols * sizeof(double));
-        (*gradients_biaises)[l] = malloc(cols * sizeof(double));
-
-        if ((*gradients_weights)[l] == NULL || (*gradients_biaises)[l] == NULL) return error_raiser("Erreur allocation matrices de gradients couche", pmc, l);
-    }
-}
-
-  /* ===== CAUSE DE TOUTES NOS PEINES ===== */
+/* ===== CAUSE DE TOUTES NOS PEINES ===== */
  /* = Init PMC = */
 // layers_sizes -> [2, 2, 1] | nb_layers -> 3 ([0, 1, 2]) | learning_rate -> Suffisement clair mdr
-PMC* init_pmc(int* layers_sizes, int nb_layers, double learning_rate){
+PMC* init_pmc(const int* layers_sizes, int nb_layers, double learning_rate) {
     PMC* pmc = malloc(sizeof(PMC));
-    if (pmc == NULL) return error_raiser("Erreur allocation PMC", pmc, 0);
+    if (pmc == NULL) printf("Erreur allocation PMC");
     
     pmc->nb_layers     = nb_layers;
     pmc->nb_weights    = nb_layers - 1; // pas de poids sur la derniere couche (sortie) (d'ou le -1)
     pmc->learning_rate = learning_rate;
     
     pmc->layers_sizes = malloc(nb_layers * sizeof(int));
-    if (layers_sizes == NULL) return error_raiser("Erreur allocation layers_sizes", pmc, 0);
+    if (pmc->layers_sizes == NULL) {
+        printf("Erreur allocation layers_sizes");
+        return NULL;
+    }
+
     for (int i = 0; i < nb_layers; i++){
         pmc->layers_sizes[i] = layers_sizes[i];
     }
     
     pmc->weights = malloc(pmc->nb_weights * sizeof(double*));
     pmc->biases  = malloc(pmc->nb_weights * sizeof(double*));
-    if (pmc->weights == NULL || pmc->biases == NULL) return error_raiser("Erreur allocation weights/biases", pmc, 0);
-    
+    if (pmc->weights == NULL || pmc->biases == NULL) {
+        printf("Erreur allocation weights/biases");
+        return NULL;
+    }
     for (int i = 0; i < pmc->nb_weights; i++){
         int rows = layers_sizes[i];
         int cols = layers_sizes[i + 1];
     
         pmc->weights[i] = malloc(rows * cols * sizeof(double));
         pmc->biases[i]  = malloc(cols * sizeof(double));
-        if (pmc->weights[i] == NULL || pmc->biases[i] == NULL) return error_raiser("Erreur allocation couche", pmc, i);
-    
+        if (pmc->weights[i] == NULL || pmc->biases[i] == NULL){
+            printf("Erreur allocation couche %d", i);
+            return NULL;
+        }
+
         for (int j = 0; j < rows * cols; j++){
             pmc->weights[i][j] = random_double(-0.1,0.1);
         }
@@ -122,20 +58,23 @@ PMC* init_pmc(int* layers_sizes, int nb_layers, double learning_rate){
 
  /* = Fonction.s d'activation.s = */
 // Sigmoid
-double act_sigmoid(double a){
+double act_sigmoid(double a) {
     return 1 / (1 + exp(-a));
 }
 // Sigmoid' -> prend en entrée le resultat de act_sigmoid(double z)
-double act_sigmoid_derivative(double sigmoid_res){
+double act_sigmoid_derivative(double sigmoid_res) {
     return sigmoid_res * (1 - sigmoid_res);
 }
 
  /* = EN AVANT = */
 // Batch
-PMC* propagation(PMC* pmc, double** input, int nb_samples, double** activations){
+void propagation(const PMC* pmc, double** input, int nb_samples, double** activations) {
     for (int l = 0; l < pmc->nb_layers; l++){
         activations[l] = malloc(nb_samples * pmc->layers_sizes[l] * sizeof(double));
-        if (activations[l] == NULL) return error_raiser("Erreur allocation activations couche", pmc, l);
+        if (activations[l] == NULL){
+            printf("Erreur allocation activations couche");
+            return;
+        }
     }
     
      // activations[0] (premiere couche) = layers_sizes[0] (couche d'entrée) -> on copie
@@ -176,35 +115,39 @@ PMC* propagation(PMC* pmc, double** input, int nb_samples, double** activations)
 
  /* = Erreur quadratique moyenne (MSE) = */
 // Batch
-double mse(double **y_true, double **y_pred, int samples, int output_size) {
+double mse(double** y_true, const double* y_pred, int nb_samples, int output_size) {
     double total = 0.0;
 
-    for (int s = 0; s < samples; s++) {
+    for (int s = 0; s < nb_samples; s++) {
         for (int i = 0; i < output_size; i++) {
-            double error = y_true[s][i] - y_pred[s][i];
+            double pred = y_pred[s * output_size + i];
+            double error = y_true[s][i] - pred;
             total += error * error;
         }
     }
 
-    return total / (samples * output_size);
+    return total / (nb_samples * output_size);
 }
 
  /* = EN ARRIERE = */
 // Batch 
 // Beaucoup de commentaires pour eviter de perdre les connaissances duement accumulés a la suite d'heures d'incomprehensions
-void retropropagation(PMC* pmc, double** input, int nb_samples, double** activations, double** y_true, double** gradients_weights, double** gradients_biaises){
+void retropropagation(const PMC* pmc, const int nb_samples, double** activations, double** y_true, double** gradients_weights, double** gradients_biaises) {
     
     int idx_output_layer  = pmc->nb_layers - 1;
     int output_layer_size = pmc->layers_sizes[idx_output_layer];
     
     // delta = (valeur_activation_sortie - y_true(valeur visé)) * act_sigmoid_derivative(activation_sortie);
     double* delta = malloc(nb_samples * output_layer_size * sizeof(double));
-    if (delta == NULL) printf("Erreur allocation delta");
+    if (delta == NULL){
+        printf("Erreur allocation delta");
+        return;
+    }
     
     for (int s = 0; s < nb_samples; s++){
         // POUR TOUT LES SAMPLES    
         for (int i = 0; i < output_layer_size; i++){
-            // Pour chacun des neurones de la couches
+            // Pour chacun des neurones de la couche
             // On recup l'Activation du neurone i pour le sample s
             double val_acti_sortie = activations[idx_output_layer][s * output_layer_size + i];
             // On recup la valeur attendue pour ce sample et ce neurone de sortie
@@ -283,7 +226,7 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
         
         // Nouveau tableau de delta pour la couche cachée courante
         double* new_delta = malloc(nb_samples * hidden_layer_size * sizeof(double));
-        if (new_delta == NULL) { // pas d'error_raiser, ca free tout le pmc mdr, a revoir
+        if (new_delta == NULL) {
             printf("Erreur allocation new_delta\n");
             free(delta);
             return;
@@ -316,11 +259,11 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
                 new_delta[s * hidden_layer_size + i] = weighted_delta_sum * act_sigmoid_derivative(val_acti_hidden);
             }
         }
-        
+
         free(delta);
         delta = new_delta;
-        
-        
+
+
            // Gradients des poids de cette couche
           // Pour [2,2,1] avec idx_weight_matrix = 0 :
          // prev_layer_size_local = layers_sizes[0] = 2
@@ -366,10 +309,12 @@ void retropropagation(PMC* pmc, double** input, int nb_samples, double** activat
             gradients_biaises[idx_weight_matrix][j] = delta_sum / nb_samples;
         }
     }
+
+    free(delta);
 }
 
 /* = MISE A JOUR ECCLESIASTIQUE DES PARAMETRES (fois le learning rate) = */
-void update_params(PMC* pmc, double** gradients_weights, double** gradients_biaises) {
+void update_params(const PMC* pmc, double** gradients_weights, double** gradients_biaises) {
     for (int l = 0; l < pmc->nb_weights; l++) {
         int rows = pmc->layers_sizes[l];
         int cols = pmc->layers_sizes[l + 1];
@@ -386,15 +331,117 @@ void update_params(PMC* pmc, double** gradients_weights, double** gradients_biai
     }
 }
 
+ /* = ENTRAINEMENT = */
+// ne fais qu'un tour
+// vrai fonction de train (l'autre faire une conversion de double* a double** pour appeler celle ci)
+double train_c(PMC* pmc, double** input, double** y_true, const int nb_samples) {
+    double* activations[pmc->nb_layers];
+    double** gradients_weights;
+    double** gradients_biaises;
+
+    alloc_gradients(pmc, &gradients_weights, &gradients_biaises);
+
+    propagation(pmc, input, nb_samples, activations);
+
+    double loss = mse(y_true, activations[pmc->nb_layers - 1], nb_samples, pmc->layers_sizes[pmc->nb_layers - 1]);
+
+    retropropagation(pmc, nb_samples, activations, y_true, gradients_weights, gradients_biaises);
+
+    update_params(pmc, gradients_weights, gradients_biaises);
+
+
+    free_gradients(pmc, gradients_weights, gradients_biaises);
+    free_activations(pmc, activations);
+
+    return loss;
+}
+
+// Prends des matrices applatie pour simplifier la com avec python
+// usurpateur malicieux (bien qu'utile)
+double train(PMC* pmc, double* input_flat, double* y_true_flat, int nb_samples, int input_size, int output_size) {
+    double** input = flat_to_double_ptr(input_flat, nb_samples, input_size);
+    double** y_true = flat_to_double_ptr(y_true_flat, nb_samples, output_size);
+
+    if (input == NULL || y_true == NULL) {
+        free(input);
+        free(y_true);
+        return -1.0;
+    }
+
+    double loss = train_c(pmc, input, y_true, nb_samples);
+
+    free(input);
+    free(y_true);
+
+    return loss;
+}
+
+double* predict(PMC* pmc, double* input_flat, int nb_samples, int input_size, int output_size) {
+    double** input = flat_to_double_ptr(input_flat, nb_samples, input_size);
+    if (input == NULL) return NULL;
+
+    double** activations = malloc(pmc->nb_layers * sizeof(double*));
+    if (activations == NULL) {
+        free(input);
+        return NULL;
+    }
+
+    propagation(pmc, input, nb_samples, activations);
+
+    double* output = malloc(nb_samples * output_size * sizeof(double));
+    if (output == NULL) {
+        free_activations(pmc, activations);
+        free(activations);
+        free(input);
+        return NULL;
+    }
+
+    double* last_layer = activations[pmc->nb_layers - 1];
+
+    for (int s = 0; s < nb_samples; s++) {
+        for (int j = 0; j < output_size; j++) {
+            output[s * output_size + j] = last_layer[s * output_size + j];
+        }
+    }
+
+    free_activations(pmc, activations);
+    free(activations);
+    free(input);
+
+    return output;
+}
+
 int main() {
-    //init du pmc
-    int ls[] = {2,2,1};
-    PMC* pmc =init_pmc(ls,3,0.5);
-    printf("%d",pmc->nb_weights);
-    
-    //bricoles a faire
-    
+    /*
+    int ls[] = {2, 2, 1};
+    PMC* pmc = init_pmc(ls, 3, 3);
+
+    int nb_samples = 4;
+
+    double x0[] = {0, 0};
+    double x1[] = {0, 1};
+    double x2[] = {1, 0};
+    double x3[] = {1, 1};
+    double* X[] = {x0, x1, x2, x3};
+
+    double y0[] = {0};
+    double y1[] = {1};
+    double y2[] = {1};
+    double y3[] = {0};
+    double* Y[] = {y0, y1, y2, y3};
+
+    train(pmc, X, Y, nb_samples, 20000);
+
+    double* activations[3]; // double* activations[pmc->nb_layers];
+    propagation(pmc, X, nb_samples, activations);
+
+    for (int s = 0; s < nb_samples; s++) {
+        printf("[%g, %g] -> %f\n", X[s][0], X[s][1], activations[pmc->nb_layers - 1][s * pmc->layers_sizes[pmc->nb_layers - 1]]);
+    }
+
+    free_activations(pmc, activations);
     free_pmc(pmc);
+    */
     return 0;
 }
 
