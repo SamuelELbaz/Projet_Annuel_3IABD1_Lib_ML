@@ -243,7 +243,7 @@ void pmc_backward(PMC *pmc, double *answers) {
         out_layer->d_biases[i] += out_layer->delta[i];
     }
 
-    // Deltas et gradients des couches cachées (inchangé)
+    // Deltas et gradients des couches cachées
     for (int i = pmc->nb_layers - 2; i >= 0; i--) {
         layer_backward(pmc->layers[i], pmc->layers[i + 1]);
     }
