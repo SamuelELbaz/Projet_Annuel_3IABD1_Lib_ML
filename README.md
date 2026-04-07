@@ -24,3 +24,6 @@ TAILLE_CIBLE = (224, 224)
 QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
 SIMILARITE_MIN = 0.95
 
+compiler et tester 
+
+ cd /Users/roissath/Documents/Cours\ 2025-2026/PA/projet_dechets/model_lineaire && gcc -o main main.c -lm && ./main

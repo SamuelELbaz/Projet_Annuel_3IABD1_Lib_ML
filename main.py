@@ -91,24 +91,42 @@ def extraire_features(image_path):
 
 
 def generer_dataset_csv(images_dir, output_csv):
+    """
+    Génère le dataset CSV depuis le dossier _out (images compressées).
+    Labels :
+        0 = Compost   (compost, organique, dechet, fruit, banner compostable...)
+        1 = Pile      (pile, battery)
+        2 = Recyclable (recyclable, verre, bouteille, plastique, canette)
+    Les fichiers dont le nom ne correspond à aucune catégorie sont ignorés.
+    """
     images_dir = Path(images_dir)
-    
+    skipped = []
+
     with open(output_csv, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["r_mean", "g_mean", "b_mean", "label"])
-        
-        for img_path in images_dir.iterdir():
-            if img_path.suffix.lower() not in [".jpg", ".png", ".jpeg"]:
+
+        for img_path in sorted(images_dir.iterdir()):
+            if img_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
                 continue
-            
-            r, g, b = extraire_features(img_path)
-            
-            if "dechet" in img_path.name.lower() or "organique" in img_path.name.lower():
-                label = 1
-            else:
+
+            name = img_path.stem.lower()
+
+            if any(k in name for k in ["compost", "organique", "dechet", "fruit", "organic"]):
                 label = 0
-            
+            elif any(k in name for k in ["pile", "battery", "batter"]):
+                label = 1
+            elif any(k in name for k in ["recyclable", "verre", "bouteille", "plastique", "canette", "recyclage"]):
+                label = 2
+            else:
+                skipped.append(img_path.name)
+                continue
+
+            r, g, b = extraire_features(img_path)
             writer.writerow([r, g, b, label])
+
+    if skipped:
+        print(f"  {len(skipped)} image(s) ignorée(s) (catégorie inconnue) : {skipped}")
 
 
 def compresser_image(image_name, output_dir="_out"):
