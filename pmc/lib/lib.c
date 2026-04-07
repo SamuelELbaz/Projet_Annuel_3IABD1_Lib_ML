@@ -61,9 +61,18 @@ PMC* init_pmc(const int* layers_sizes, int nb_layers, double learning_rate) {
 double act_sigmoid(double a) {
     return 1 / (1 + exp(-a));
 }
-// Sigmoid' -> prend en entrée le resultat de act_sigmoid(double z)
+// Sigmoid' -> prend en entrée le resultat de act_sigmoid(double z) | ]0;1[
 double act_sigmoid_derivative(double sigmoid_res) {
     return sigmoid_res * (1 - sigmoid_res);
+}
+// Tanh
+double act_tanh(double a) {
+    return (exp(a) - exp(-a)) / (exp(a) + exp(-a));
+}
+
+// Tanh' | ]-1;1[
+double act_tanh_derivative(double tanh_res) {
+    return 1 - (tanh_res * tanh_res);
 }
 
  /* = EN AVANT = */
@@ -107,7 +116,7 @@ void propagation(const PMC* pmc, double** input, int nb_samples, double** activa
                 // ajout du biais
                 sum += pmc->biases[l][j];
                 // activation de cette combinaison lineaire + biais
-                activations[l + 1][s * cols + j] = act_sigmoid(sum);
+                activations[l + 1][s * cols + j] = act_tanh(sum);
             }
         }
     }
@@ -137,7 +146,7 @@ void retropropagation(const PMC* pmc, const int nb_samples, double** activations
     int idx_output_layer  = pmc->nb_layers - 1;
     int output_layer_size = pmc->layers_sizes[idx_output_layer];
     
-    // delta = (valeur_activation_sortie - y_true(valeur visé)) * act_sigmoid_derivative(activation_sortie);
+    // delta = (valeur_activation_sortie - y_true(valeur visé)) * act_tanh_derivative(activation_sortie);
     double* delta = malloc(nb_samples * output_layer_size * sizeof(double));
     if (delta == NULL){
         printf("Erreur allocation delta");
@@ -155,7 +164,7 @@ void retropropagation(const PMC* pmc, const int nb_samples, double** activations
             
              // ET LA on remplie notre matrice de delta
             //delta = (prediction - cible) * sigmoid'(sigmoid(a))
-            delta[s * output_layer_size + i] = (val_acti_sortie - val_true) * act_sigmoid_derivative(val_acti_sortie);
+            delta[s * output_layer_size + i] = (val_acti_sortie - val_true) * act_tanh_derivative(val_acti_sortie);
         }
         
     }
@@ -256,7 +265,7 @@ void retropropagation(const PMC* pmc, const int nb_samples, double** activations
                 double val_acti_hidden = activations[idx_weight_matrix + 1][s * hidden_layer_size + i];
                 
                 // Delta du neurone cache = matrice des delta ponderee * sigmoid'(valeur d'activation du neuronne cache courant)
-                new_delta[s * hidden_layer_size + i] = weighted_delta_sum * act_sigmoid_derivative(val_acti_hidden);
+                new_delta[s * hidden_layer_size + i] = weighted_delta_sum * act_tanh_derivative(val_acti_hidden);
             }
         }
 

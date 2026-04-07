@@ -5,8 +5,11 @@
 
 PMC* init_pmc(const int* layers_sizes, int nb_layers, double learning_rate);
 
+// Fonctions d'activations
 double act_sigmoid(double a);
 double act_sigmoid_derivative(double sigmoid_res);
+double act_tanh(double a);
+double act_tanh_derivative(double tanh_res);
 
 void propagation(const PMC* pmc, double** input, int nb_samples, double** activations);
 double mse(double** y_true, const double* y_pred, int nb_samples, int output_size);
