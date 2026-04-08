@@ -3,7 +3,7 @@
 
 #include "pmc_utils.h"
 
-/* ===== UTILITAIRES ===== */
+  /* ===== UTILITAIRES ===== */
  /* = Liberateur Judiciaire = */
 // Pour le pmc COMPLET
 void free_pmc(PMC* pmc) {
