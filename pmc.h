@@ -33,7 +33,7 @@ double random_xavier(double low, double high);
 Layer *init_layer(int nb_in, int nb_out);
 void free_layer(Layer *layer);
 void free_pmc(PMC *pmc);
-PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate);
+PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate, int is_regression);
 double func_tanh(double z);
 double deriv_tanh(double z);
 double sigmoid(double z);

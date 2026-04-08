@@ -129,7 +129,7 @@ void free_pmc(PMC *pmc) {
 }
 
 
-PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate) {
+PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate, int is_regression) {
 
     PMC *pmc = malloc(sizeof(PMC));
     if(!pmc){
@@ -156,6 +156,8 @@ PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate) {
             return NULL;
         }
     }
+
+    pmc->layers[pmc->nb_layers - 1]->output_type = is_regression ? OUTPUT_LINEAR : OUTPUT_TANH;
 
     return pmc;
 }

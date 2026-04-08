@@ -7,7 +7,8 @@ _lib = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "pmc.dll"))
 _lib.init_pmc.argtypes = [
     ctypes.POINTER(ctypes.c_int),  # layer_sizes
     ctypes.c_int,                  # nb_sizes
-    ctypes.c_double                # learning_rate
+    ctypes.c_double,                # learning_rate
+    ctypes.c_int
 ]
 _lib.init_pmc.restype = ctypes.c_void_p  # PMC* opaque
 
@@ -59,9 +60,9 @@ def _to_c_double(arr):
 
 
 class PMC:
-    def __init__(self, layer_sizes: list[int], learning_rate: float = 0.5):
+    def __init__(self, layer_sizes: list[int], learning_rate: float = 0.5, is_regression: bool = False):
         sizes_arr = (ctypes.c_int * len(layer_sizes))(*layer_sizes)
-        self._pmc = _lib.init_pmc(sizes_arr, len(layer_sizes), learning_rate)
+        self._pmc = _lib.init_pmc(sizes_arr, len(layer_sizes), learning_rate, int(is_regression))
         if not self._pmc:
             raise RuntimeError("init_pmc a échoué")
         self._nb_outputs = layer_sizes[-1]
