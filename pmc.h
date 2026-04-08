@@ -3,9 +3,14 @@
 
 #include <stddef.h>
 
+#define OUTPUT_SIGMOID 0
+#define OUTPUT_TANH 1
+#define OUTPUT_LINEAR 2
+
 typedef struct {
     int nb_in; //Nombre d'entrées reçues pas la couche
     int nb_out; //Nombre de neurones de la couche
+    int output_type; //Type de la fonction d'activation de la couche de sortie
 
     double *weights; //Poids de la couche
     double *biases; //Biais de la couche
@@ -29,6 +34,8 @@ Layer *init_layer(int nb_in, int nb_out);
 void free_layer(Layer *layer);
 void free_pmc(PMC *pmc);
 PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate);
+double func_tanh(double z);
+double deriv_tanh(double z);
 double sigmoid(double z);
 double deriv_sigmoid(double z);
 double *layer_forward(Layer *layer, double *input);
@@ -44,5 +51,6 @@ double pmc_loss(PMC *pmc, double *inputs, double *answers, int nb_samples, int n
 int pmc_predict_class(PMC *pmc, double *inputs, int nb_outputs);
 double pmc_accuracy(PMC *pmc, double *inputs, double *answers_labels, int nb_samples, int nb_features, int nb_outputs);
 void pmc_confusion_matrix(PMC *pmc, double *inputs, double *answers_labels, int nb_samples, int nb_features, int nb_outputs, int *confusion);
+void pmc_predict_value(PMC *pmc, double *inputs, double *outputs);
 
 #endif

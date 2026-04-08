@@ -104,14 +104,15 @@ class PMC:
 
     def confusion_matrix(self, X: np.ndarray, labels: np.ndarray) -> np.ndarray:
         nb_samples, nb_features = X.shape
+        nb_classes = 2 if self._nb_outputs == 1 else self._nb_outputs
         x_ptr, _x   = _to_c_double(X.flatten())
         lb_ptr, _lb = _to_c_double(labels.astype(np.float64))
-        cm = (ctypes.c_int * (self._nb_outputs ** 2))()
+        cm = (ctypes.c_int * (nb_classes ** 2))()
         _lib.pmc_confusion_matrix(
             self._pmc, x_ptr, lb_ptr,
             nb_samples, nb_features, self._nb_outputs,
             cm
         )
         return np.ctypeslib.as_array(cm).reshape(
-            self._nb_outputs, self._nb_outputs
+            nb_classes, nb_classes
         ).copy()

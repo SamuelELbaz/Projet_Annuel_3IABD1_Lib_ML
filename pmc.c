@@ -2,9 +2,14 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define OUTPUT_SIGMOID 0
+#define OUTPUT_TANH 1
+#define OUTPUT_LINEAR 2
+
 typedef struct {
     int nb_in; //Nombre d'entrées reçues pas la couche
     int nb_out; //Nombre de neurones de la couche
+    int output_type; //Type de la fonction d'activation de la couche de sortie
 
     double *weights; //Poids de la couche
     double *biases; //Biais de la couche
@@ -36,6 +41,7 @@ Layer *init_layer(int nb_in, int nb_out) {
 
     layer->nb_in = nb_in;
     layer->nb_out = nb_out;
+    layer->output_type = OUTPUT_TANH;
 
     layer->weights = malloc(nb_in * nb_out * sizeof(double));
     if(!layer->weights){
@@ -154,8 +160,13 @@ PMC *init_pmc(int *layer_sizes, int nb_sizes, double learning_rate) {
     return pmc;
 }
 
+double func_tanh(double z) {
+    return tanh(z);
+}
 
-
+double deriv_tanh(double z) {
+    return 1.0 - z * z;
+}
 
 double sigmoid(double z){
     return 1.0 / (1.0 + exp(-z));
@@ -174,8 +185,13 @@ double *layer_forward(Layer *layer, double *input){
         for(int j = 0; j < layer->nb_in; j++){
             activation += layer->weights[i * layer->nb_in + j] * input[j];
         }
-
-        layer->activations[i] = sigmoid(activation);
+        if(layer->output_type == OUTPUT_SIGMOID){
+            layer->activations[i] = sigmoid(activation);
+        } else if(layer->output_type == OUTPUT_TANH){
+            layer->activations[i] = func_tanh(activation);
+        } else { //OUTPUT_LINEAR
+            layer->activations[i] = activation;
+        }
     }
 
     return layer->activations;
@@ -195,9 +211,16 @@ void delta_output(Layer *layer, double *answers){
     for(int i = 0; i < layer->nb_out; i++){
         double activation = layer->activations[i];
         double error = activation - answers[i];
-        double deriv_sig = deriv_sigmoid(activation);
+        double deriv;
+        if(layer->output_type == OUTPUT_SIGMOID){
+            deriv = deriv_sigmoid(activation);
+        } else if(layer->output_type == OUTPUT_TANH){
+            deriv = deriv_tanh(activation);
+        } else { //OUTPUT_LINEAR
+            deriv = 1.0;
+        }
 
-        layer->delta[i] = error * deriv_sig;
+        layer->delta[i] = error * deriv;
     }
 }
 
@@ -210,8 +233,15 @@ void layer_backward(Layer *layer, Layer *next_layer){
         for(int j = 0; j < next_layer->nb_out; j++){
             signal += next_layer->weights[j * next_layer->nb_in + i] * next_layer->delta[j];
         }
-
-        layer->delta[i] = signal * deriv_sigmoid(layer->activations[i]);
+        double deriv;
+        if(layer->output_type == OUTPUT_SIGMOID){
+            deriv = deriv_sigmoid(layer->activations[i]);
+        } else if(layer->output_type == OUTPUT_TANH){
+            deriv = deriv_tanh(layer->activations[i]);
+        } else { //OUTPUT_LINEAR
+            deriv = 1.0;
+        }
+        layer->delta[i] = signal * deriv;
     }
 
     // Accumulation des gradients d_weights
@@ -330,6 +360,10 @@ double pmc_loss(PMC *pmc, double *inputs, double *answers, int nb_samples, int n
 int pmc_predict_class(PMC *pmc, double *inputs, int nb_outputs){
     double *output = pmc_forward(pmc, inputs);
 
+    if(nb_outputs == 1) {
+        return output[0] >= 0.0 ? 0 : 1;
+    }
+
     int max_index = 0;
     double max_score = output[0];
 
@@ -360,12 +394,22 @@ double pmc_accuracy(PMC *pmc, double *inputs, double *answers_labels, int nb_sam
 }
 
 void pmc_confusion_matrix(PMC *pmc, double *inputs, double *answers_labels, int nb_samples, int nb_features, int nb_outputs, int *confusion){
+    int nb_classes = (nb_outputs == 1) ? 2 : nb_outputs;
 
     for(int i = 0; i < nb_samples; i++){
         double *input = inputs + i * nb_features;
         int prediction = pmc_predict_class(pmc, input, nb_outputs);
         int actual_label = answers_labels[i];
 
-        confusion[actual_label * nb_outputs + prediction]++;
+        confusion[actual_label * nb_classes + prediction]++;
     }
 }
+
+void pmc_predict_value(PMC *pmc, double *inputs, double *outputs){
+    double *output = pmc_forward(pmc, inputs);
+    Layer *last = pmc->layers[pmc->nb_layers - 1];
+    for(int i = 0; i < last->nb_out; i++){
+        outputs[i] = output[i];
+    }
+}
+
