@@ -5,6 +5,8 @@ __pycache__/
 _out/
 .vscode/
 
+.venv
+
 *.dll
 *.so
 *.o
