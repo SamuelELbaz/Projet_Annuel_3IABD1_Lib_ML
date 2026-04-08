@@ -8,7 +8,6 @@
  *       W[:, classe_vraie]   += alpha * x   (renforcer)
  *       W[:, classe_predite] -= alpha * x   (penaliser)
  *   - Converge SEULEMENT si les donnees sont lineairement separables
- *   - NE DIVERGE PAS : mise a jour uniquement en cas d'erreur
  *
  * ALGORITHME 2 - PSEUDO-INVERSE (solution analytique)
  *   - Formule : W = (X^T * X)^(-1) * X^T * Y
@@ -16,45 +15,16 @@
  *   - Solution optimale, calculee en une seule etape
  *   - Inversion par elimination de Gauss-Jordan
  *
- * CAS DE TESTS :
- *   1. Lineaire separable  -> les deux convergent a 100%
- *   2. XOR sans transform  -> les deux echouent (~50%)   [CAS KO]
- *   3. XOR + phi(x)=[x1,x2,x1*x2,1] -> les deux convergent a 100%
+ * Compilation (bibliotheque partagee) :
+ *   gcc -shared -fPIC -DNO_MAIN -O2 -lm -o model_lineaire.so model_lineaire.c
  */
 
-#include <stdio.h>
 #include <math.h>
 #include <string.h>
 
 #define MAX_FEAT 5
 #define MAX_CLS  3
 #define MAX_SAMP 1000
-
-/* Donnees des tests (utilisees par main() uniquement) */
-#define N1 6
-#define F1 3
-double X1[MAX_SAMP][MAX_FEAT] = {
-    {1.0, 2.0, 1.0}, {1.5, 2.5, 1.0},
-    {5.0, 6.0, 1.0}, {5.5, 6.5, 1.0},
-    {1.0, 1.0, 1.0}, {5.0, 5.0, 1.0}
-};
-int Y1[MAX_SAMP] = {0, 0, 1, 1, 0, 1};
-
-#define N2 4
-#define F2 3
-double X2[MAX_SAMP][MAX_FEAT] = {
-    {0.0, 0.0, 1.0}, {0.0, 1.0, 1.0},
-    {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}
-};
-int Y2[MAX_SAMP] = {0, 1, 1, 0};
-
-#define N3 4
-#define F3 4
-double X3[MAX_SAMP][MAX_FEAT] = {
-    {0.0, 0.0, 0.0, 1.0}, {0.0, 1.0, 0.0, 1.0},
-    {1.0, 0.0, 0.0, 1.0}, {1.0, 1.0, 1.0, 1.0}
-};
-int Y3[MAX_SAMP] = {0, 1, 1, 0};
 
 /* Inversion de matrice NxN par Gauss-Jordan. Retourne 1 si OK, 0 si singuliere. */
 int mat_inv(double A[MAX_FEAT][MAX_FEAT],
@@ -226,31 +196,3 @@ void gradient_descent(double X[MAX_SAMP][MAX_FEAT], double Y_reg[MAX_SAMP],
     }
 }
 
-/* main() : tests en ligne de commande (memes donnees que le notebook) */
-#ifndef NO_MAIN
-int main(void)
-{
-    double Wr[MAX_FEAT][MAX_CLS];
-    double Wp[MAX_FEAT][MAX_CLS];
-
-    printf("=== TEST 1 : Lineaire separable ===\n");
-    rosenblatt(X1, Y1, N1, F1, 2, 0.1, 500, Wr);
-    evaluate(X1, Y1, N1, Wr, F1, 2, "Rosenblatt");
-    pseudo_inverse(X1, Y1, N1, F1, 2, Wp);
-    evaluate(X1, Y1, N1, Wp, F1, 2, "Pseudo-Inverse");
-
-    printf("\n=== TEST 2 : XOR brut (KO attendu) ===\n");
-    rosenblatt(X2, Y2, N2, F2, 2, 0.1, 200, Wr);
-    evaluate(X2, Y2, N2, Wr, F2, 2, "Rosenblatt");
-    pseudo_inverse(X2, Y2, N2, F2, 2, Wp);
-    evaluate(X2, Y2, N2, Wp, F2, 2, "Pseudo-Inverse");
-
-    printf("\n=== TEST 3 : XOR + phi(x) ===\n");
-    rosenblatt(X3, Y3, N3, F3, 2, 0.1, 500, Wr);
-    evaluate(X3, Y3, N3, Wr, F3, 2, "Rosenblatt");
-    pseudo_inverse(X3, Y3, N3, F3, 2, Wp);
-    evaluate(X3, Y3, N3, Wp, F3, 2, "Pseudo-Inverse");
-
-    return 0;
-}
-#endif
