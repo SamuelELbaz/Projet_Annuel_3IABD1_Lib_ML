@@ -4,3 +4,5 @@ venv
 .venv
 .jpg
 .exe
+__pychace__
+.idea
