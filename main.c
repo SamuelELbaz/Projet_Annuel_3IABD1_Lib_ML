@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+void set_seed(unsigned int s){ srand(s); }
 
 // ===== InvMat.c =====
 // ---- Allocation / libération ----
@@ -112,6 +113,11 @@ double** allocation_matricielle(int largeur, int hauteur){
     return m;
 }
 
+void liberateur_judiciaire(double** mat, int rows) {
+    for (int i = 0; i < rows; i++) free(mat[i]);
+    free(mat);
+}
+
 void afficher_matrice(const char* nom, double** M, int lignes, int colonnes){
     printf("=== %s ===\n", nom);
     for(int i = 0; i < lignes; i++){
@@ -136,6 +142,7 @@ double influence(double* a, double* b, double gamma, double dimension){
     return exp(-gamma * (distance_quadratique(a, b, dimension)));
 }
 
+// Remplit la matrice d'influence pour 1 exemple = 1 point
 double** remplissage_matricielle(double** X, double taille, int dimension, double gamma){
     double** matrice = allocation_matricielle(taille, taille);
     for(int i = 0; i < taille; i++){
@@ -146,13 +153,26 @@ double** remplissage_matricielle(double** X, double taille, int dimension, doubl
     return matrice;
 }
 
+// Remplit la matrice d'influence -> influence des centres sur les points
+double** remplissage_matricielle_centre(double** points, int nb_points, 
+                                        double** centres, int nb_centres, 
+                                        int dimension, double gamma){
+    double** matrice = allocation_matricielle(nb_points, nb_centres);
+    for (int i = 0; i < nb_points; i++){
+        for (int j = 0; j < nb_centres; j++){
+            matrice[i][j] = influence(points[i], centres[j], gamma, dimension);
+        }
+    }
+    return matrice;
+}
+
  // PROTOCOLE_DE_MATRIFICATION_DES_MASSES_NUMERIQUES
 // W[k][i] = poids du centre i pour la classe k
-double** calcul_poids(double** matInv, double** y_true, int nb_centre, int nb_classes){
+double** calcul_poids(double** matInv, double** y_true, int nb_centre, int nb_point, int nb_classes){
     double** w = allocation_matricielle(nb_classes, nb_centre);
     for (int classe = 0; classe < nb_classes; classe++){
         for (int centre = 0; centre < nb_centre; centre++){
-            for (int exemple = 0; exemple < nb_centre; exemple++){
+            for (int exemple = 0; exemple < nb_point; exemple++){
                 w[classe][centre] += matInv[centre][exemple] * y_true[exemple][classe];
             }
         }
@@ -233,9 +253,97 @@ double** k_mean(double** mat,int nb_point, int dimension, int nb_centre){
     return centre;
 }
 
+// Utilisation en lib
+
+double** unflat(double* X_flat, int largeur, int hauteur){
+    double** X_unflated = malloc(hauteur * sizeof(double*));
+    if (!X_unflated)
+        return NULL;
+
+    for (int i = 0; i < hauteur; i++)
+        X_unflated[i] = X_flat + i * largeur;
+    return X_unflated;
+}
+
+double train(double* X, int nb_points, int dimension,
+           double* Y, int nb_classes, 
+           double* centres_out, int nb_centres, double gamma,
+           double* W_out){
+    
+    double** X_mat = unflat(X, dimension, nb_points);
+    double** Y_mat = unflat(Y, nb_classes, nb_points);
+    
+    // Matrices de K centres
+    double** centres = k_mean(X_mat, nb_points, dimension, nb_centres);
+    // Matrices d'influences Exemple x centres
+    double** matrice = remplissage_matricielle_centre(X_mat, nb_points, centres, nb_centres, dimension, gamma);
+    // Pseudo-inverse, on embrasse Moone et Moore-Penrose
+    double** mat_inv = pseudo_inverse(matrice, nb_points, nb_centres);
+    // Matrice de poid ->
+    double** mat_w   = calcul_poids(mat_inv, Y_mat, nb_centres, nb_points, nb_classes);
+    
+     // -- Out --
+    // mat des centres a plat
+    for(int i = 0; i < nb_centres; i++)
+        for(int d = 0; d < dimension; d++)
+            centres_out[i*dimension + d] = centres[i][d];
+
+    // mat de poids a plat
+    for(int c = 0; c < nb_classes; c++)
+        for(int j = 0; j < nb_centres; j++)
+            W_out[c*nb_centres + j] = mat_w[c][j];
+    
+    // -- MSE --
+    double mse = 0.0;
+    for(int i = 0; i < nb_points; i++){
+        for(int c = 0; c < nb_classes; c++){
+            double score = 0.0;
+            for(int j = 0; j < nb_centres; j++)
+                score += mat_w[c][j] * influence(X_mat[i], centres[j], gamma, dimension);
+            double diff = score - Y_mat[i][c];
+            mse += diff * diff;
+        }
+    }
+    mse /= (nb_points * nb_classes);
+    
+    // free matrices
+    liberateur_judiciaire(centres, nb_centres);
+    liberateur_judiciaire(matrice, nb_points);
+    liberateur_judiciaire(mat_inv, nb_centres);
+    liberateur_judiciaire(mat_w, nb_classes);
+    
+    free(X_mat);
+    free(Y_mat);
+    
+    return mse;
+}
+
+void predict(double* X_test, int nb_test, int dimension,
+             double* centres, int nb_centres,
+             double* W, int nb_classes,
+             double gamma, double* scores_out){
+    double** X_mat       = unflat(X_test, dimension, nb_test);
+    double** centres_mat = unflat(centres, dimension, nb_centres);
+    double** W_mat       = unflat(W, nb_centres, nb_classes);
+
+    for(int i = 0; i < nb_test; i++){
+        for(int classe = 0; classe < nb_classes; classe++){
+            double score = 0.0;
+            for(int j = 0; j < nb_centres; j++)
+                score += W_mat[classe][j] * influence(X_mat[i], centres_mat[j], gamma, dimension);
+            scores_out[i*nb_classes + classe] = score;
+        }
+    }
+    
+    free(X_mat);
+    free(centres_mat);
+    free(W_mat);
+}
+
 int main(){
     srand((unsigned int)time(NULL));
     
+    /*
     double p0[] = {5.0, 2.0, 9.0};
     double p1[] = {2.0, 6.0, 3.0};
     double p2[] = {4.0, 4.0, 5.0};
@@ -244,8 +352,7 @@ int main(){
     double p5[] = {9.0, 2.0, 1.0};
     double* X[] = {p0, p1, p2, p3, p4, p5};
 
-    // Y one-hot : p0->classe0, p1->classe0, p2->classe1
-    // y_true[exemple][classe]  (matrice N x K)
+    // Y one-hot : p0,p1->classe0 ; p2,p3->classe1 ; p4,p5->classe2
     double y0[] = {1, 0, 0};
     double y1[] = {1, 0, 0};
     double y2[] = {0, 1, 0};
@@ -254,36 +361,12 @@ int main(){
     double y5[] = {0, 0, 1};
     double* Y[] = {y0, y1, y2, y3, y4, y5};
 
-    int nb_centre  = 6;
+    int nb_point   = 6;    // nombre d'exemples
+    int nb_centre  = 3;    // nombre de centroides RBF (issus du k-means)
     int nb_classes = 3;
     int dimension  = 3;
     double gamma   = 0.03;
+    */
 
-    double** mat    = remplissage_matricielle(X, nb_centre, dimension, gamma);
-    afficher_matrice("Mat", mat, nb_centre, nb_centre);
-
-    double** matInv = pseudo_inverse(mat, nb_centre, nb_centre);
-    afficher_matrice("Mat_INV", matInv, nb_centre, nb_centre);
-
-    double** W = calcul_poids(matInv, Y, nb_centre, nb_classes);
-    afficher_matrice("W (nb_classes x nb_centre)", W, nb_classes, nb_centre);
-
-    printf("=== PREDICTIONS (score par classe) ===\n");
-    for(int i = 0; i < nb_centre; i++){
-        printf("exemple %d : ", i);
-        for(int classe = 0; classe < nb_classes; classe++){
-            double score = 0.0;
-            for(int j = 0; j < nb_centre; j++)
-                score += W[classe][j] * influence(X[i], X[j], gamma, dimension);
-            printf("cl%d=% .4f  ", classe, score);
-        }
-        printf("\n");
-    }
-    
-    printf("======================\n");
-    int nb_centre_kmean = 4;
-    double** k = k_mean(X, nb_centre, dimension, nb_centre_kmean);
-    afficher_matrice("Init K Centre", k, nb_centre_kmean, dimension);
-    
     return 0;
 }
