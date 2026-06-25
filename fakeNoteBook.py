@@ -7,7 +7,7 @@ from rbf_main import RBF, one_hot, set_seed
 
 ## Cas de Test
 ### Classification
-'''
+''''''
 #### Linear Simple
 ##### Data In
 X = np.array([
@@ -19,7 +19,7 @@ Y = np.array([
     [1, 0],
     [0, 1],
     [0, 1]
-], dtype=float)
+])
 
 plt.scatter(X[0, 0], X[0, 1], color='blue')
 plt.scatter(X[1:3,0], X[1:3,1], color='red')
@@ -27,6 +27,7 @@ plt.scatter(X[1:3,0], X[1:3,1], color='red')
 plt.xlim(0.9, 3.1)
 plt.ylim(0.9, 3.1)
 
+plt.title("RBF - Classification - Linear Simple - Data In")
 plt.show()
 plt.clf()
 
@@ -59,7 +60,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=100, linewidths=1,
             label="centres (k-means)", zorder=6)
 
-
+plt.title("RBF - Classification - Linear Simple - Data Out")
 plt.show()
 
 
@@ -77,8 +78,9 @@ plt.scatter(X[50:100,0], X[50:100,1], color='red')
 plt.xlim(0.9, 3.1)
 plt.ylim(0.9, 3.1)
 
-#plt.show()
-#plt.clf()
+plt.title("RBF - Classification - Linear Multiple - Data In")
+plt.show()
+plt.clf()
 
 ##### Model
 
@@ -113,7 +115,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=100, linewidths=1,
             label="centres (k-means)", zorder=6)
 
-
+plt.title("RBF - Classification - Linear Multiple - Data Out")
 plt.show()
 plt.clf()
 
@@ -130,7 +132,9 @@ Y = np.array([
 
 plt.scatter(X[0:2, 0], X[0:2, 1], color='blue')
 plt.scatter(X[2:4,0], X[2:4,1], color='red')
-#plt.show()
+
+plt.title("RBF - Classification - XOR - Data In")
+plt.show()
 plt.clf()
 
 
@@ -167,7 +171,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=50, linewidths=1,
             label="centres (k-means)", zorder=6)
 
-
+plt.title("RBF - Classification - XOR - Data Out")
 plt.show()
 plt.clf()
 
@@ -180,6 +184,8 @@ Y = one_hot(np.where(y_label == 1, 0, 1), 2)
 classes = Y.argmax(axis=1)
 plt.scatter(X[classes==0,0], X[classes==0,1], color='blue')
 plt.scatter(X[classes==1,0], X[classes==1,1], color='red')
+
+plt.title("RBF - Classification - Cross - Data In")
 plt.show()
 plt.clf()
 
@@ -211,6 +217,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=50, linewidths=1,
             label="centres (k-means)", zorder=6)
 
+plt.title("RBF - Classification - Cross - Data Out")
 plt.show()
 plt.clf()
 
@@ -231,6 +238,8 @@ classes = Y.argmax(axis=1)
 plt.scatter(X[classes==0,0], X[classes==0,1], color='blue')
 plt.scatter(X[classes==1,0], X[classes==1,1], color='red')
 plt.scatter(X[classes==2,0], X[classes==2,1], color='green')
+
+plt.title("RBF - Classification - Multi Linear 3 CLasses - Data In")
 plt.show()
 plt.clf()
 
@@ -262,6 +271,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=50, linewidths=1,
             label="centres (k-means)", zorder=6)
 
+plt.title("RBF - Classification - Multi Linear 3 CLasses - Data Out")
 plt.show()
 plt.clf()
 
@@ -274,6 +284,8 @@ Y = np.array([[1, -1, -1] if abs(p[0] % 0.5) <= 0.25 and abs(p[1] % 0.5) > 0.25 
 plt.scatter(np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][0] == 1, enumerate(X)))))[:,0], np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][0] == 1, enumerate(X)))))[:,1], color='blue')
 plt.scatter(np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][1] == 1, enumerate(X)))))[:,0], np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][1] == 1, enumerate(X)))))[:,1], color='red')
 plt.scatter(np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][2] == 1, enumerate(X)))))[:,0], np.array(list(map(lambda elt : elt[1], filter(lambda c: Y[c[0]][2] == 1, enumerate(X)))))[:,1], color='green')
+
+plt.title("RBF - Classification - Multi Cross - Data In")
 plt.show()
 plt.clf()
 
@@ -305,6 +317,7 @@ plt.scatter(model.centres[:,0], model.centres[:,1],
             marker="X", c="purple", edgecolor="white", s=50, linewidths=1,
             label="centres (k-means)", zorder=6)
 
+plt.title("RBF - Classification - Multi Cross - Data Out")
 plt.show()
 plt.clf()
 
@@ -323,6 +336,8 @@ Y = np.array([
 ])
 
 plt.scatter(X,Y)
+
+plt.title("RBF - Regression - Linear Simple 2D - Data In")
 plt.show()
 plt.clf()
 
@@ -349,6 +364,8 @@ plt.scatter(model.centres[:, 0], np.zeros(len(model.centres)),
 plt.title("Régression — Linear Simple 2D")
 plt.legend()
 plt.grid(True)
+
+plt.title("RBF - Regression - Linear Simple 2D - Data Out")
 plt.show()
 plt.clf()
 
@@ -367,6 +384,8 @@ Y = np.array([
 ])
 
 plt.scatter(X,Y)
+
+plt.title("RBF - Regression - Non Linear Simple 2D - Data In")
 plt.show()
 plt.clf()
 
@@ -393,6 +412,8 @@ plt.scatter(model.centres[:, 0], np.zeros(len(model.centres)),
 plt.title("Régression — Linear Simple 2D")
 plt.legend()
 plt.grid(True)
+
+plt.title("RBF - Regression - Non Linear Simple 2D - Data Out")
 plt.show()
 plt.clf()
 
@@ -414,6 +435,8 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(X[:,0], X[:,1], Y[:,0])
+
+plt.title("RBF - Regression - Linear Simple 3D - Data In")
 plt.show()
 
 ##### Model
@@ -443,6 +466,8 @@ ax.scatter(model.centres[:,0], model.centres[:,1],
 
 ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("y")
 ax.legend()
+
+plt.title("RBF - Regression - Linear Simple 3D - Data Out")
 plt.show()
 
 
@@ -463,6 +488,8 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(X[:,0], X[:,1], Y[:,0])
+
+plt.title("RBF - Regression - Linear Tricky 3D - Data In")
 plt.show()
 
 ##### Model
@@ -492,8 +519,10 @@ ax.scatter(model.centres[:,0], model.centres[:,1],
 
 ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("y")
 ax.legend()
+
+plt.title("RBF - Regression - Linear Tricky 3D - Data Out")
 plt.show()
-'''
+
 
 #### Non Linear Simple 3D
 
@@ -514,6 +543,8 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(X[:,0],X[:,1],Y[:,0])
+
+plt.title("RBF - Regression - Non Linear Simple 3D - Data In")
 plt.show()
 
 ##### Model
@@ -546,5 +577,7 @@ ax.scatter(model.centres[:,0], model.centres[:,1],
 
 ax.set_xlabel("x1"); ax.set_ylabel("x2"); ax.set_zlabel("y")
 ax.legend()
+
+plt.title("RBF - Regression - Non Linear Simple 3D - Data Out")
 plt.show()
 
