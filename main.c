@@ -185,16 +185,53 @@ double** k_mean(double** mat,int nb_point, int dimension, int nb_centre){
     int* assignation      = malloc(nb_point * sizeof(int));
     int* assignation_prec = malloc(nb_point * sizeof(int));
     
+    double* dist = malloc(nb_point * sizeof(double));
+    
     int max_iter = 100;
     
-     // Init des centres -> prends des points random comme coord de centre
-    // Todo : les espacer ou prendre des points de chaque classe
+    /*
+    // Init des centres -> prends des points random comme coord de centre
     for (int i = 0; i < nb_centre; i++){
         int rd = rand() % nb_point;
         for (int j = 0; j < dimension; j++){
             centre[i][j] = mat[rd][j];
         }
     }
+    */
+    
+    // Init des centres -> Eloignés les uns des autres
+    int rd = rand() % nb_point;
+    for (int i = 0; i < dimension; i++){
+        centre[0][i] = mat[rd][i];
+    }
+    
+    for (int i = 1; i < nb_centre; i++){
+        for (int p = 0; p < nb_point; p++){
+            double best = INFINITY;
+            for (int c = 0; c < i; c++){
+                double d = distance_quadratique(mat[p], centre[c], dimension);
+                if (d < best) best = d;
+            }
+            dist[p] = best;
+        }
+        
+        double total = 0;
+        for (int p = 0; p < nb_point; p++) total += dist[p];
+        
+        double r = ((double)rand() / RAND_MAX) * total;
+    
+        int elu = nb_point - 1;
+        double cumul = 0;
+        for (int p = 0; p < nb_point; p++){
+            cumul += dist[p];
+            if (cumul >= r){ elu = p; break; }
+        }
+    
+        for (int j = 0; j < dimension; j++)
+        centre[i][j] = mat[elu][j];
+    }
+
+    
     for (int i = 0; i < nb_point; i++) assignation_prec[i] = -1;
     
     // Sacro-Saibte boucle Assignation-Udpate
@@ -250,6 +287,7 @@ double** k_mean(double** mat,int nb_point, int dimension, int nb_centre){
     
     free(assignation);
     free(assignation_prec);
+    free(dist);
     return centre;
 }
 
