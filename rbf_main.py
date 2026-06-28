@@ -1,15 +1,9 @@
-"""
-rbf_notebook.py — classe RBF utilisable en notebook, dans le meme esprit que ton PMC.
-A importer dans un notebook :  from rbf_notebook import RBF, one_hot
-Necessite rbf.dll (ou rbf.so) dans le meme dossier.
-"""
 import ctypes
 import numpy as np
 
-# ---------- chargement lib + signatures ----------
 import os
 _here = os.path.dirname(os.path.abspath(__file__))
-_dll = os.path.join(_here, "rbf.dll")
+_dll = os.path.join(_here, "rbf2.dll")
 if not os.path.exists(_dll):
     _dll = os.path.join(_here, "rbf_linux.so")   # fallback test
 lib = ctypes.CDLL(_dll)
@@ -38,7 +32,6 @@ def one_hot(labels, nb_classes):
 def set_seed(s):
     lib.set_seed(int(s))
 
-# ---------- la classe ----------
 class RBF:
     def __init__(self, nb_centres, gamma):
         self.K = nb_centres
@@ -46,7 +39,6 @@ class RBF:
         self.centres = self.W = None
         self.dim = self.nb_classes = None
 
-    # --- comme model.train(X, Y) du PMC, mais UN SEUL appel (pas de boucle) ---
     def train(self, X, Y_onehot):
         X = np.ascontiguousarray(X, dtype=np.float64)
         Y = np.ascontiguousarray(Y_onehot, dtype=np.float64)
@@ -65,7 +57,6 @@ class RBF:
 
     fit = train           # alias
 
-    # --- scores pour un LOT de points (vectorise, 1 seul appel C) ---
     def predict_scores(self, X):
         X = np.ascontiguousarray(np.atleast_2d(X), dtype=np.float64)
         n = X.shape[0]
@@ -77,10 +68,8 @@ class RBF:
                     self.gamma, scores.ctypes.data_as(c_double_p))
         return scores.reshape(n, self.nb_classes)
 
-    # --- comme model.forward(pt) du PMC : UN point -> vecteur de scores ---
     def forward(self, pt):
         return self.predict_scores(np.atleast_2d(pt))[0]
 
-    # --- classe predite (argmax des scores) ---
     def predict(self, X):
         return self.predict_scores(X).argmax(axis=1)
