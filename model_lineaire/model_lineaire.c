@@ -22,9 +22,9 @@
 #include <math.h>
 #include <string.h>
 
-#define MAX_FEAT 5
+#define MAX_FEAT 8      /* 5 features (R,G,B,grad_mean,grad_std) + biais + marge */
 #define MAX_CLS  3
-#define MAX_SAMP 1000
+#define MAX_SAMP 4500   /* 1500 images × 3 catégories */
 
 /* Inversion de matrice NxN par Gauss-Jordan. Retourne 1 si OK, 0 si singuliere. */
 int mat_inv(double A[MAX_FEAT][MAX_FEAT],

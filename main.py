@@ -1,178 +1,158 @@
+"""
+Génération du dataset CSV depuis les images annotées.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sources (sous-dossiers de IMAGE_DIR) :
+  compost/           → label 0 (Compost / Organique)
+  dechets_chimiques/ → label 1 (Chimique / Dangereux)
+  recyclable/        → label 2 (Recyclable)
+
+Utilise les MAX_PAR_CAT premières images de chaque catégorie,
+triées par numéro croissant (ex. _0001 … _0500).
+
+Usage :
+  python main.py
+"""
+
 import csv
 import numpy as np
 from PIL import Image
 from pathlib import Path
 
-TAILLE_CIBLE = (224, 224)
-QUALITES_A_TESTER = [95, 85, 75, 65, 55, 45, 35, 25, 15]
-SIMILARITE_MIN = 0.95
+# ─── Configuration ────────────────────────────────────────────────────────────
+IMAGE_DIR   = Path("image ")    # dossier racine contenant les sous-dossiers
+OUTPUT_CSV  = Path("dataset.csv")
+MAX_PAR_CAT = 1500              # premières images utilisées par catégorie
+TAILLE_CIBLE = (224, 224)       # même taille que preprocess() dans l'app
+
+# ─── Correspondance dossier → label ──────────────────────────────────────────
+CATEGORIES = {
+    "compost":           0,   # Compost / Organique
+    "dechets_chimiques": 1,   # Chimique / Dangereux
+    "recyclable":        2,   # Recyclable
+}
 
 
-def redimensionner_avec_padding(img, taille_cible=TAILLE_CIBLE):
-    largeur_cible, hauteur_cible = taille_cible
-    img_width, img_height = img.size
-    
-    ratio = min(largeur_cible / img_width, hauteur_cible / img_height)
-    nouvelle_width = int(img_width * ratio)
-    nouvelle_height = int(img_height * ratio)
-    
-    img_redim = img.resize((nouvelle_width, nouvelle_height), Image.LANCZOS)
-    img_final = Image.new('RGB', taille_cible, (255, 255, 255))
-    
-    offset_x = (largeur_cible - nouvelle_width) // 2
-    offset_y = (hauteur_cible - nouvelle_height) // 2
-    img_final.paste(img_redim, (offset_x, offset_y))
-    
-    return img_final
+def get_numero(path: Path) -> int:
+    """Extrait le numéro depuis le nom (exemple compost_0042 → 42)."""
+    try:
+        return int(path.stem.rsplit("_", 1)[-1])
+    except (ValueError, IndexError):
+        return 999_999
 
 
-def calculer_similarite(img1, img2):
-    if img1.size != img2.size:
-        return 0.0
-    arr1 = np.array(img1).astype(float)
-    arr2 = np.array(img2).astype(float)
-    mse = np.mean((arr1 - arr2) ** 2)
-    if mse == 0:
-        return 1.0
-    psnr = 20 * np.log10(255.0 / np.sqrt(mse))
-    if psnr >= 50:
-        return 1.0
-    if psnr <= 20:
-        return 0.0
-    return (psnr - 20) / 30.0
+def _grille_moyennes(canal: np.ndarray, g: int = 3) -> list:
+    """Découpe un canal en grille g×g et renvoie la moyenne de chaque case
+    (ordre ligne par ligne). Capture *où* se trouvent les couleurs/bords dans
+    l'image — information spatiale que la moyenne globale perd."""
+    H, W = canal.shape
+    ys = np.linspace(0, H, g + 1).astype(int)
+    xs = np.linspace(0, W, g + 1).astype(int)
+    return [float(canal[ys[i]:ys[i+1], xs[j]:xs[j+1]].mean())
+            for i in range(g) for j in range(g)]
 
 
-def trouver_qualite_optimale(img, chemin_sortie, qualites=QUALITES_A_TESTER, similarite_min=SIMILARITE_MIN):
-    meilleure_qualite = qualites[0]
-    meilleure_taille = float('inf')
-    meilleure_similarite = 0.0
-    
-    img_ref = img.convert("RGB") if img.mode != 'RGB' else img
-    
-    for qualite in qualites:
-        try:
-            img_ref.save(chemin_sortie, quality=qualite, optimize=True)
-        except OSError:
-            img_ref.convert("RGB").save(chemin_sortie, quality=qualite, optimize=True)
-        
-        img_comprimee = Image.open(chemin_sortie)
-        similarite = calculer_similarite(img_ref, img_comprimee)
-        img_comprimee.close()
-        
-        taille_bytes = chemin_sortie.stat().st_size
-        
-        if similarite >= similarite_min and taille_bytes < meilleure_taille:
-            meilleure_qualite = qualite
-            meilleure_taille = taille_bytes
-            meilleure_similarite = similarite
-    
-    if meilleure_taille == float('inf'):
-        meilleure_qualite = qualites[0]
-        img_ref.save(chemin_sortie, quality=meilleure_qualite, optimize=True)
-        meilleure_taille = chemin_sortie.stat().st_size
-        img_test = Image.open(chemin_sortie)
-        meilleure_similarite = calculer_similarite(img_ref, img_test)
-        img_test.close()
-    else:
-        img_ref.save(chemin_sortie, quality=meilleure_qualite, optimize=True)
-    
-    return meilleure_qualite, meilleure_taille, meilleure_similarite
-
-
-def extraire_features(image_path):
-    img = Image.open(image_path)
-    arr = np.array(img)
-    
-    r_mean = np.mean(arr[:,:,0])
-    g_mean = np.mean(arr[:,:,1])
-    b_mean = np.mean(arr[:,:,2])
-    
-    return r_mean, g_mean, b_mean
-
-
-def generer_dataset_csv(images_dir, output_csv):
+def extraire_features(img_path: Path) -> list:
     """
-    Génère le dataset CSV depuis le dossier _out (images compressées).
-    Labels :
-        0 = Compost   (compost, organique, dechet, fruit, banner compostable...)
-        1 = Pile      (pile, battery)
-        2 = Recyclable (recyclable, verre, bouteille, plastique, canette)
-    Les fichiers dont le nom ne correspond à aucune catégorie sont ignorés.
-    """
-    images_dir = Path(images_dir)
-    skipped = []
+    Charge une image, la redimensionne (thumbnail, contenu seul — sans padding
+    blanc qui créerait de faux contours) et extrait 32 caractéristiques :
 
-    with open(output_csv, "w", newline="") as f:
+        • moyennes globales R, G, B            (3)   → couleur globale  ([0–255])
+        • grille 3×3 des moyennes R, G, B      (27)  → répartition spatiale ([0–255])
+        • moyenne / écart-type du gradient     (2)   → texture / bords    ([0–1])
+
+    La grille 3×3 capte la disposition (objet centré, fond uni, bords blancs) que
+    la simple moyenne ignore : le modèle linéaire passe de ~57 % à ~63 %.
+    Les 3 moyennes globales sont conservées en tête pour le PMC (qui n'utilise
+    que R, G, B) et les anciens tests C.
+    """
+    img = Image.open(img_path).convert("RGB")
+    img.thumbnail(TAILLE_CIBLE, Image.LANCZOS)        # contenu seul, aucun bord blanc
+    arr = np.asarray(img, dtype=np.float32)           # [0–255]
+    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+
+    # Grille 3×3 par canal (27 valeurs) en [0–255]
+    grille = _grille_moyennes(r, 3) + _grille_moyennes(g, 3) + _grille_moyennes(b, 3)
+
+    # Gradient sur niveaux de gris normalisés [0–1] → texture / netteté des bords
+    gray   = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+    gy, gx = np.gradient(gray)
+    grad   = np.sqrt(gx * gx + gy * gy)
+
+    return ([float(r.mean()), float(g.mean()), float(b.mean())]   # 3 globales (PMC/legacy)
+            + grille                                               # 27 grille
+            + [float(grad.mean()), float(grad.std())])             # 2 gradient
+
+
+def generer_dataset(image_dir: Path, output_csv: Path, max_par_cat: int = MAX_PAR_CAT):
+    """
+    Génère dataset.csv en lisant les sous-dossiers de image_dir.
+    Ne prend que les max_par_cat premières images (tri numérique) par catégorie.
+    """
+    total = 0
+
+    # En-tête : 3 globales (R,G,B) + 27 grille (r_0..b_8) + 2 gradient + label
+    grille_cols = ([f"r_{i}" for i in range(9)]
+                   + [f"g_{i}" for i in range(9)]
+                   + [f"b_{i}" for i in range(9)])
+    entete = ["r_mean", "g_mean", "b_mean"] + grille_cols + ["grad_mean", "grad_std", "label"]
+
+    with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["r_mean", "g_mean", "b_mean", "label"])
+        writer.writerow(entete)
 
-        for img_path in sorted(images_dir.iterdir()):
-            if img_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
+        for dossier_nom, label in CATEGORIES.items():
+            dossier = image_dir / dossier_nom
+            if not dossier.exists():
+                print(f"  [ATTENTION] Dossier introuvable : {dossier}")
                 continue
 
-            name = img_path.stem.lower()
+            # Tri numérique, on prend les max_par_cat premiers fichiers
+            fichiers = sorted(
+                [f for f in dossier.iterdir()
+                 if f.suffix.lower() in {".jpg", ".jpeg", ".png"}
+                 and not f.name.startswith(".")],
+                key=get_numero
+            )[:max_par_cat]
 
-            if any(k in name for k in ["compost", "organique", "dechet", "fruit", "organic"]):
-                label = 0
-            elif any(k in name for k in ["pile", "battery", "batter"]):
-                label = 1
-            elif any(k in name for k in ["recyclable", "verre", "bouteille", "plastique", "canette", "recyclage"]):
-                label = 2
-            else:
-                skipped.append(img_path.name)
-                continue
+            print(f"  [{dossier_nom:20s}] label={label}  —  {len(fichiers)} images")
+            ok = 0
+            for img_path in fichiers:
+                try:
+                    feats = extraire_features(img_path)        # 32 valeurs
+                    # 30 premières (R,G,B globales + grille) en [0–255] : 4 décimales
+                    # 2 dernières (gradient) en [0–1] : 6 décimales
+                    ligne = ([f"{v:.4f}" for v in feats[:30]]
+                             + [f"{v:.6f}" for v in feats[30:]]
+                             + [label])
+                    writer.writerow(ligne)
+                    ok += 1
+                except Exception as e:
+                    print(f"    Erreur {img_path.name}: {e}")
 
-            r, g, b = extraire_features(img_path)
-            writer.writerow([r, g, b, label])
+            total += ok
+            print(f"    → {ok} lignes écrites")
 
-    if skipped:
-        print(f"  {len(skipped)} image(s) ignorée(s) (catégorie inconnue) : {skipped}")
-
-
-def compresser_image(image_name, output_dir="_out"):
-    image_path = Path(image_name)
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    img = Image.open(image_path)
-    img = redimensionner_avec_padding(img, TAILLE_CIBLE)
-    
-    stem = image_path.stem
-    out_name = f"{stem}_processed.jpg"
-    saved_path = out_dir / out_name
-
-    trouver_qualite_optimale(img, saved_path, QUALITES_A_TESTER, SIMILARITE_MIN)
-
-
-def compresser_dossier(in_dir="_in", output_dir="_out"):
-    import shutil
-    
-    out_path = Path(output_dir)
-    if out_path.exists():
-        shutil.rmtree(out_path)
-    out_path.mkdir(parents=True, exist_ok=True)
-    
-    valid_ext = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
-    files = [f for f in Path(in_dir).iterdir() if f.is_file() and f.suffix.lower() in valid_ext]
-    
-    if not files:
-        print(f"Aucuneimage dans {in_dir}")
-        return
-
-    for img_path in files:
-        try:
-            compresser_image(img_path, output_dir)
-        except Exception as e:
-            print(f"Erreur {img_path.name}: {e}")
+    print(f"\n  Dataset total : {total} lignes  →  {output_csv}")
+    return total
 
 
 if __name__ == "__main__":
-    dossier_source = Path("_in")
-    
-    if not dossier_source.exists():
-        print(f"Créez le dossier '_in' et y mettez vos images")
+    print("━" * 55)
+    print("  GÉNÉRATION DU DATASET CSV — Classification de déchets")
+    print("━" * 55)
+    print(f"  Source   : {IMAGE_DIR.resolve()}")
+    print(f"  Sortie   : {OUTPUT_CSV.resolve()}")
+    print(f"  Max/cat  : {MAX_PAR_CAT} premières images")
+    print()
+
+    if not IMAGE_DIR.exists():
+        print(f"ERREUR : Le dossier '{IMAGE_DIR}' est introuvable.")
         exit(1)
-    
-    compresser_dossier()
-    generer_dataset_csv("_out", "dataset.csv")
-    print("Compression terminée")
+
+    n = generer_dataset(IMAGE_DIR, OUTPUT_CSV, MAX_PAR_CAT)
+    print()
+    print(f"  {n} échantillons générés ({MAX_PAR_CAT} × {len(CATEGORIES)} catégories)")
+    print()
+    print("  Prochaine étape :")
+    print("    streamlit run app_streamlit.py")
+    print("━" * 55)
