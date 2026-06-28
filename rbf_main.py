@@ -3,9 +3,9 @@ import numpy as np
 
 import os
 _here = os.path.dirname(os.path.abspath(__file__))
-_dll = os.path.join(_here, "rbf2.dll")
+_dll = os.path.join(_here, "rbf.dll")
 if not os.path.exists(_dll):
-    _dll = os.path.join(_here, "rbf_linux.so")   # fallback test
+    _dll = os.path.join(_here, "rbf_linux.so")
 lib = ctypes.CDLL(_dll)
 
 c_int = ctypes.c_int; c_uint = ctypes.c_uint
