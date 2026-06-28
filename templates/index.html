@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tri Déchets - 3 Modèles</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <main class="box">
+    <h1>Classification Déchets</h1>
+    <p class="sub">Upload une image et compare: Linéaire, PMC, RBF</p>
+
+    <form action="/predict" method="post" enctype="multipart/form-data" class="form">
+      <input type="file" name="image" accept="image/*" required />
+      <button type="submit">Prédire</button>
+    </form>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if result %}
+      <section class="results">
+        <h2>Résultats</h2>
+        <div class="card"><strong>Modèle linéaire:</strong> {{ result.linear }}</div>
+        <div class="card"><strong>PMC:</strong> {{ result.pmc }}</div>
+        <div class="card"><strong>RBF:</strong> {{ result.rbf }}</div>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>
