@@ -53,9 +53,9 @@ class RBF:
         self.centres = centres_out.reshape(self.K, dim)
         self.W = W_out.reshape(nb_classes, self.K)
         self.dim = dim; self.nb_classes = nb_classes
-        return mse        # MSE finale (pas une liste : RBF n'a pas d'epochs)
+        return mse
 
-    fit = train           # alias
+    fit = train
 
     def predict_scores(self, X):
         X = np.ascontiguousarray(np.atleast_2d(X), dtype=np.float64)
