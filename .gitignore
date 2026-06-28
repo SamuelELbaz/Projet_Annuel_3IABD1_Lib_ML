@@ -1,6 +1,10 @@
 __pycache__/
 *.pyc
 *.pyo
+dataset/
+images/
+RENDU_1/
+RENDU_2/
 
 _out/
 .vscode/

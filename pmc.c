@@ -209,6 +209,7 @@ double *pmc_forward(PMC *pmc, double *input){
     return output;
 }
 
+
 void delta_output(Layer *layer, double *answers){
     for(int i = 0; i < layer->nb_out; i++){
         double activation = layer->activations[i];
