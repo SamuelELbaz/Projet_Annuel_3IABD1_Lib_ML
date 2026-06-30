@@ -3,7 +3,7 @@ import numpy as np
 
 import os
 _here = os.path.dirname(os.path.abspath(__file__))
-_dll = os.path.join(_here, "rbf.dll")
+_dll = os.path.join(_here, "rbf_linux.so")
 if not os.path.exists(_dll):
     _dll = os.path.join(_here, "rbf_linux.so")
 lib = ctypes.CDLL(_dll)
