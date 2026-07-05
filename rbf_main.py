@@ -3,18 +3,27 @@ import numpy as np
 
 import os
 _here = os.path.dirname(os.path.abspath(__file__))
-_dll = os.path.join(_here, "rbf.dll")
+_dll = os.path.join(_here, "rbf_cpp.dll")
 if not os.path.exists(_dll):
-    _dll = os.path.join(_here, "rbf_linux.so")
+    _dll = os.path.join(_here, "rbf_cpp.so")
 lib = ctypes.CDLL(_dll)
 
 c_int = ctypes.c_int; c_uint = ctypes.c_uint
 c_double = ctypes.c_double; c_double_p = ctypes.POINTER(c_double)
 
 lib.set_seed.argtypes = [c_uint]; lib.set_seed.restype = None
-lib.train.argtypes = [c_double_p, c_int, c_int, c_double_p, c_int,
-                      c_double_p, c_int, c_double, c_double_p]
-lib.train.restype  = c_double
+
+lib.train_reg.argtypes = [c_double_p, c_int, c_int, c_double_p, c_int,
+                          c_double_p, c_int, c_double, c_double_p]
+lib.train_reg.restype  = c_double
+
+lib.init_class.argtypes = [c_double_p, c_int, c_int, c_int, c_double,
+                           c_double_p, c_double_p]
+lib.init_class.restype  = None
+lib.train_epoch.argtypes = [c_double_p, c_int, c_int, c_double_p, c_int,
+                            c_double_p, c_double]
+lib.train_epoch.restype  = c_double
+
 lib.predict.argtypes = [c_double_p, c_int, c_int, c_double_p, c_int,
                         c_double_p, c_int, c_double, c_double_p]
 lib.predict.restype  = None
@@ -39,23 +48,44 @@ class RBF:
         self.centres = self.W = None
         self.dim = self.nb_classes = None
 
-    def train(self, X, Y_onehot):
+    def train_reg(self, X, Y):
         X = np.ascontiguousarray(X, dtype=np.float64)
-        Y = np.ascontiguousarray(Y_onehot, dtype=np.float64)
+        Y = np.ascontiguousarray(Y, dtype=np.float64)
         n, dim = X.shape
         nb_classes = Y.shape[1]
         centres_out = np.zeros(self.K * dim)
         W_out       = np.zeros(nb_classes * self.K)
         _, Xp = _p(X.ravel()); _, Yp = _p(Y.ravel())
-        mse = lib.train(Xp, n, dim, Yp, nb_classes,
-                        centres_out.ctypes.data_as(c_double_p), self.K, self.gamma,
-                        W_out.ctypes.data_as(c_double_p))
+        mse = lib.train_reg(Xp, n, dim, Yp, nb_classes,
+                            centres_out.ctypes.data_as(c_double_p), self.K, self.gamma,
+                            W_out.ctypes.data_as(c_double_p))
         self.centres = centres_out.reshape(self.K, dim)
         self.W = W_out.reshape(nb_classes, self.K)
         self.dim = dim; self.nb_classes = nb_classes
         return mse
 
-    fit = train
+    train = train_reg
+
+    def init_classif(self, X, nb_classes):
+        X = np.ascontiguousarray(X, dtype=np.float64)
+        n, dim = X.shape
+        self.dim, self.nb_classes = dim, nb_classes
+        self.centres = np.zeros(self.K * dim)
+        self._phi    = np.zeros(n * self.K)
+        _, Xp = _p(X.ravel())
+        lib.init_class(Xp, n, dim, self.K, self.gamma,
+                       self.centres.ctypes.data_as(c_double_p),
+                       self._phi.ctypes.data_as(c_double_p))
+        self.centres = self.centres.reshape(self.K, dim)
+        self.W = np.zeros(nb_classes * self.K)
+        self._n = n
+
+    def train_epoch(self, Y_onehot, learning_rate=0.05):
+        Y = np.ascontiguousarray(Y_onehot, dtype=np.float64)
+        _, Yp = _p(Y.ravel())
+        return lib.train_epoch(self._phi.ctypes.data_as(c_double_p),
+                               self._n, self.K, Yp, self.nb_classes,
+                               self.W.ctypes.data_as(c_double_p), learning_rate)
 
     def predict_scores(self, X):
         X = np.ascontiguousarray(np.atleast_2d(X), dtype=np.float64)
@@ -63,7 +93,7 @@ class RBF:
         scores = np.zeros(n * self.nb_classes)
         _, Xp = _p(X.ravel())
         _, cp = _p(self.centres.ravel())
-        _, wp = _p(self.W.ravel())
+        _, wp = _p(self.W.ravel())          # W.ravel() : marche a plat ou en 2D
         lib.predict(Xp, n, self.dim, cp, self.K, wp, self.nb_classes,
                     self.gamma, scores.ctypes.data_as(c_double_p))
         return scores.reshape(n, self.nb_classes)
