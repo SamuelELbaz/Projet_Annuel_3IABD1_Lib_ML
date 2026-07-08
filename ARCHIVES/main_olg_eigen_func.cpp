@@ -22,7 +22,8 @@ double** pseudo_inverse(double** A, int m, int n) {
         for (int j = 0; j < n; j++)
             Mat(i, j) = A[i][j];
  
-    Eigen::MatrixXd Pinv = Mat.completeOrthogonalDecomposition().pseudoInverse();
+    Eigen::BDCSVD<Eigen::MatrixXd, Eigen::ComputeThinU | Eigen::ComputeThinV> svd(Mat);
+    Eigen::MatrixXd Pinv = svd.solve(Eigen::MatrixXd::Identity(m, m));
 
     double** Aplus = allocation_matricielle(n, m);
     for (int i = 0; i < n; i++)

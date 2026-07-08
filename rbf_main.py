@@ -1,9 +1,10 @@
 import ctypes
 import numpy as np
+from tqdm import tqdm
 
 import os
 _here = os.path.dirname(os.path.abspath(__file__))
-_dll = os.path.join(_here, "rbf_cpp.dll")
+_dll = os.path.join(_here, "rbf (1).dll")
 if not os.path.exists(_dll):
     _dll = os.path.join(_here, "rbf_cpp.so")
 lib = ctypes.CDLL(_dll)
@@ -37,6 +38,12 @@ def one_hot(labels, nb_classes):
     Y = np.zeros((len(labels), nb_classes))
     Y[np.arange(len(labels)), labels] = 1.0
     return Y
+
+def confusion_matrix(y_true, y_pred, nb_classes):
+    y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
+    cm = np.zeros((nb_classes, nb_classes), dtype=int)
+    np.add.at(cm, (y_true, y_pred), 1)   # ligne = vrai, colonne = prédit
+    return cm
 
 def set_seed(s):
     lib.set_seed(int(s))
@@ -103,3 +110,57 @@ class RBF:
 
     def predict(self, X):
         return self.predict_scores(X).argmax(axis=1)
+
+## Hmm
+
+def rbf_classification_training( 
+                                nb_epoch:int
+                                ,learning_rate:float
+                                ,nb_centre:int
+                                ,gamma:float
+                                ,seeds:list[int]
+                                ,X_train, X_val
+                                ,y_train, y_val
+                                )->list[list|list[list]] :
+
+    Y_train_oh = one_hot(y_train, 3)
+    Y_val_oh   = one_hot(y_val, 3)
+
+
+    all_accs, all_train_loss, all_val_loss = [], [], []
+        
+    for seed in seeds :
+        set_seed(seed)
+        model = RBF(nb_centres=nb_centre, gamma=gamma)
+        model.init_classif(X_train, 3)
+
+        train_losses, val_losses, accs = [], [], []
+
+        pbar = tqdm(range(nb_epoch), desc=f"seed={seed}")
+        for epoch in pbar:
+            train_losses.append(model.train_epoch(Y_train_oh, learning_rate))
+
+            scores_val = model.predict_scores(X_val)
+            val_losses.append(np.mean((scores_val - Y_val_oh) ** 2))
+
+            accs.append(np.mean(model.predict(X_val) == y_val))
+
+            pbar.set_postfix(train=f"{train_losses[-1]:.4f}", val=f"{val_losses[-1]:.4f}", acc=f"{accs[-1]:.3f}")
+        
+        all_train_loss.append(train_losses)
+        all_val_loss.append(val_losses)
+        all_accs.append(accs)
+
+    all_train_loss = np.array(all_train_loss)
+    all_val_loss   = np.array(all_val_loss)
+    all_accs       = np.array(all_accs)
+
+    return {
+        "model": model,
+        "train_loss_mean": all_train_loss.mean(axis=0),
+        "train_loss_std":  all_train_loss.std(axis=0),
+        "val_loss_mean":   all_val_loss.mean(axis=0),
+        "val_loss_std":    all_val_loss.std(axis=0),
+        "accs_mean":       all_accs.mean(axis=0),
+        "accs_std":        all_accs.std(axis=0),
+    }
