@@ -91,16 +91,18 @@ seeds_list = [
     ,[3, 8, 9]
 ]
 
-gammas = [0.01, 0.05, 0.1, 0.5, 0.8]
+gammas = [0.01, 0.1, 0.5, 0.8, 2] #0.5 -> le meilleurs
+list_nb_centre = np.arange(800, 2000, 50)
+loss_train_final_par_nb_centre, loss_val_final_par_nb_centre, acc_final_par_nb_centre = [], [], []
 
-for g in gammas :
-    print(f"Batch gamma = {g}")
+for c in list_nb_centre :
+    print(f"Batch nb_centre -> {c}")
 
     training_output = rbf_classification_training(
             nb_epoch=nb_epoch
             ,learning_rate=.1
-            ,nb_centre=100
-            ,gamma=g
+            ,nb_centre=c
+            ,gamma=.5
             ,seeds=seeds_list[2]
             ,X_train=X_train, X_val=X_val
             ,y_train=y_train, y_val=y_val
@@ -114,27 +116,44 @@ for g in gammas :
     accs_mean           = training_output["accs_mean"]
     accs_std            = training_output["accs_std"]
 
+    # pour plot
+    loss_train_final_par_nb_centre.append(train_loss_mean[-1])
+    loss_val_final_par_nb_centre.append(val_loss_mean[-1])
+    acc_final_par_nb_centre.append(accs_mean[-1])
 
     # PLOT
     epochs = np.arange(nb_epoch)
 
     # LOSSES
-    plt.figure(0)
-    plt.plot(epochs, train_loss_mean, label=f"Moyenne Train Losses - {g}")
-    plt.fill_between(epochs, train_loss_mean - train_loss_std, train_loss_mean + train_loss_std, alpha=0.3, label="Ecart-type Train Losses")
+    plt.figure(00)
+    plt.plot(epochs, train_loss_mean, label=f"Moyenne Train Losses - k={c}")
+    #plt.fill_between(epochs, train_loss_mean - train_loss_std, train_loss_mean + train_loss_std, alpha=0.3, label="Ecart-type Train Losses")
 
-    plt.plot(epochs, val_loss_mean, label=f"Moyenne Validation Losses - {g}")
-    plt.fill_between(epochs, val_loss_mean - val_loss_std, val_loss_mean + val_loss_std, alpha=0.3, label="Ecart-type Validation Losses")
+    plt.plot(epochs, val_loss_mean, label=f"Moyenne Validation Losses - k={c}")
+    #plt.fill_between(epochs, val_loss_mean - val_loss_std, val_loss_mean + val_loss_std, alpha=0.3, label="Ecart-type Validation Losses")
 
     plt.xlabel("epoch"); plt.ylabel("Losses_Mean")
     plt.title("Moyenne de l'erreur au cours des epoch"); plt.legend()
 
     # ACCURACY
-    plt.figure(11)
-    plt.plot(epochs, accs_mean, label=f"Moyenne d'accuracy - {g}")
+    plt.figure(10)
+    plt.plot(epochs, accs_mean, label=f"Moyenne d'accuracy - k={c}")
     plt.fill_between(epochs, accs_mean - accs_std, accs_mean + accs_std, alpha=0.3, label="Ecart-type")
     plt.xlabel("epoch"); plt.ylabel("Accuracy_Mean")
     plt.title("Accuracy validation"); plt.legend(); plt.grid(True)
+
+
+# Courbes par batch
+plt.figure(20)
+plt.plot(list_nb_centre, loss_train_final_par_nb_centre, label="Train Loss final par nb_centre")
+plt.plot(list_nb_centre, loss_val_final_par_nb_centre, label="Val Loss final par nb_centre")
+plt.xlabel("epoch"); plt.ylabel("Losses_Mean")
+plt.title("Loss mean par nb_centre"); plt.legend(); plt.grid(True)
+
+plt.figure(21)
+plt.plot(list_nb_centre, loss_train_final_par_nb_centre, label="Train Loss final par nb_centre")
+plt.xlabel("epoch"); plt.ylabel("Accuracy_Mean")
+plt.title("Accuracy mean par nb_centre"); plt.legend(); plt.grid(True)
 
 # CM
 y_pred = model.predict(X_val)
