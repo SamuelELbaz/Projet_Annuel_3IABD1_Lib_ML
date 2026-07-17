@@ -1,198 +1,179 @@
-/*
- * MODELE LINEAIRE SUPERVISE - ROSENBLATT vs PSEUDO-INVERSE
- * =========================================================
- *
- * ALGORITHME 1 - ROSENBLATT (Perceptron, 1957)
- *   - Prediction : classe = argmax_c ( W[:,c] . x )
- *   - Regle de mise a jour (seulement si erreur) :
- *       W[:, classe_vraie]   += alpha * x   (renforcer)
- *       W[:, classe_predite] -= alpha * x   (penaliser)
- *   - Converge SEULEMENT si les donnees sont lineairement separables
- *
- * ALGORITHME 2 - PSEUDO-INVERSE (solution analytique)
- *   - Formule : W = (X^T * X)^(-1) * X^T * Y
- *   - Minimise ||Y - X*W||^2 (moindres carres)
- *   - Solution optimale, calculee en une seule etape
- *   - Inversion par elimination de Gauss-Jordan
- *
- * Compilation (bibliotheque partagee) :
- *   gcc -shared -fPIC -DNO_MAIN -O2 -lm -o model_lineaire.so model_lineaire.c
- */
-
-#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define MAX_FEAT 8      /* 5 features (R,G,B,grad_mean,grad_std) + biais + marge */
-#define MAX_CLS  3
-#define MAX_SAMP 4500   /* 1500 images × 3 catégories */
+// Acces row-major : ligne i, colonne j
+#define X_AT(i, j) X[(i) * nf + (j)]
+#define W_AT(i, j) W[(i) * nc + (j)]
+#define Y_AT(i, j) Y[(i) * nc + (j)]
 
-/* Inversion de matrice NxN par Gauss-Jordan. Retourne 1 si OK, 0 si singuliere. */
-int mat_inv(double A[MAX_FEAT][MAX_FEAT],
-            double Ai[MAX_FEAT][MAX_FEAT], int n)
-{
-    double aug[MAX_FEAT][2 * MAX_FEAT];
-    int i, j;
-
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
-            aug[i][j]     = A[i][j];
-            aug[i][n + j] = (i == j) ? 1.0 : 0.0;
-        }
+static void shuffle(int *arr, int n) {
+    for (int i = n - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
     }
-
-    for (int col = 0; col < n; col++) {
-        int piv = col;
-        for (i = col + 1; i < n; i++)
-            if (fabs(aug[i][col]) > fabs(aug[piv][col]))
-                piv = i;
-
-        if (fabs(aug[piv][col]) < 1e-12) {
-            return 0;
-        }
-
-        for (j = 0; j < 2 * n; j++) {
-            double tmp  = aug[col][j];
-            aug[col][j] = aug[piv][j];
-            aug[piv][j] = tmp;
-        }
-
-        double p = aug[col][col];
-        for (j = 0; j < 2 * n; j++) aug[col][j] /= p;
-
-        for (i = 0; i < n; i++) {
-            if (i == col) continue;
-            double f = aug[i][col];
-            for (j = 0; j < 2 * n; j++)
-                aug[i][j] -= f * aug[col][j];
-        }
-    }
-
-    for (i = 0; i < n; i++)
-        for (j = 0; j < n; j++)
-            Ai[i][j] = aug[i][n + j];
-
-    return 1;
 }
 
-/* Prediction : classe = argmax_c (W[:,c] . x) */
-int predict(double W[MAX_FEAT][MAX_CLS], double x[MAX_FEAT],
-            int nf, int nc)
-{
+static int predict_internal(double *W, double *x, int nf, int nc) {
     int best = 0;
     double best_score = -1e30;
     for (int c = 0; c < nc; c++) {
         double s = 0.0;
-        for (int k = 0; k < nf; k++) s += W[k][c] * x[k];
+        for (int k = 0; k < nf; k++) s += W[k * nc + c] * x[k];
         if (s > best_score) { best_score = s; best = c; }
     }
     return best;
 }
 
-/* Rosenblatt (Perceptron) : mise a jour uniquement sur erreur */
-void rosenblatt(double X[MAX_SAMP][MAX_FEAT], int Y[], int n,
-                int nf, int nc, double alpha, int max_ep,
-                double W[MAX_FEAT][MAX_CLS])
+// Perceptron de Rosenblatt (classification)
+void rosenblatt(double *X, int *Y, int n, int nf, int nc,
+                double alpha, int max_ep, double *W, unsigned int seed)
 {
-    for (int i = 0; i < MAX_FEAT; i++)
-        for (int j = 0; j < MAX_CLS; j++)
-            W[i][j] = 0.0;
+    memset(W, 0, nf * nc * sizeof(double));
+
+    int *indices = (int *)malloc(n * sizeof(int));
+    for (int i = 0; i < n; i++) indices[i] = i;
+    srand(seed);  // seed passe depuis Python, pour pouvoir reproduire un run
 
     for (int ep = 0; ep < max_ep; ep++) {
+        shuffle(indices, n);
         int errors = 0;
-
-        for (int i = 0; i < n; i++) {
-            int pred   = predict(W, X[i], nf, nc);
+        for (int ii = 0; ii < n; ii++) {
+            int i = indices[ii];
+            double *xi = X + i * nf;
+            int pred = predict_internal(W, xi, nf, nc);
             int true_c = Y[i];
-
             if (pred != true_c) {
                 errors++;
                 for (int k = 0; k < nf; k++) {
-                    W[k][true_c] += alpha * X[i][k];
-                    W[k][pred]   -= alpha * X[i][k];
+                    W[k * nc + true_c] += alpha * xi[k];
+                    W[k * nc + pred]   -= alpha * xi[k];
                 }
             }
         }
-
-        if (errors == 0) return;
+        if (errors == 0) break;
     }
+    free(indices);
 }
 
-/* Pseudo-inverse : W = (X^T*X)^-1 * X^T*Y */
-void pseudo_inverse(double X[MAX_SAMP][MAX_FEAT], int Y[], int n,
-                    int nf, int nc, double W[MAX_FEAT][MAX_CLS])
+// Inversion de matrice par Gauss-Jordan (in place).
+// M et inv font size x size. inv doit deja contenir l'identite en entree.
+// Retourne 0 si M est singuliere (pas inversible), 1 sinon.
+static int invert_matrix(double *M, int size, double *inv)
 {
-    double Yoh[MAX_SAMP][MAX_CLS];
-    memset(Yoh, 0, sizeof(Yoh));
-    for (int i = 0; i < n; i++) Yoh[i][Y[i]] = 1.0;
-
-    double XTX[MAX_FEAT][MAX_FEAT];
-    memset(XTX, 0, sizeof(XTX));
-    for (int i = 0; i < nf; i++)
-        for (int j = 0; j < nf; j++)
-            for (int k = 0; k < n; k++)
-                XTX[i][j] += X[k][i] * X[k][j];
-
-    double XTXi[MAX_FEAT][MAX_FEAT];
-    memset(XTXi, 0, sizeof(XTXi));
-    if (!mat_inv(XTX, XTXi, nf)) return;
-
-    double XTY[MAX_FEAT][MAX_CLS];
-    memset(XTY, 0, sizeof(XTY));
-    for (int i = 0; i < nf; i++)
-        for (int j = 0; j < nc; j++)
-            for (int k = 0; k < n; k++)
-                XTY[i][j] += X[k][i] * Yoh[k][j];
-
-    for (int i = 0; i < nf; i++)
-        for (int j = 0; j < nc; j++) {
-            W[i][j] = 0.0;
-            for (int k = 0; k < nf; k++)
-                W[i][j] += XTXi[i][k] * XTY[k][j];
+    for (int col = 0; col < size; col++) {
+        // on cherche le meilleur pivot dans la colonne (plus stable numeriquement)
+        int pivot = col;
+        for (int row = col + 1; row < size; row++) {
+            double a = M[row * size + col];
+            double b = M[pivot * size + col];
+            if (a < 0) a = -a;
+            if (b < 0) b = -b;
+            if (a > b) pivot = row;
         }
-}
 
-/* Regression pseudo-inverse : W = (X^T*X + ridge*I)^-1 * X^T*y */
-void pseudo_inverse_reg(double X[MAX_SAMP][MAX_FEAT], double Y_reg[MAX_SAMP],
-                        int n, int nf, double ridge, double W[MAX_FEAT])
-{
-    double XTX[MAX_FEAT][MAX_FEAT];
-    double XTXi[MAX_FEAT][MAX_FEAT];
-    double XTY[MAX_FEAT];
-    memset(XTX, 0, sizeof(XTX));
-    memset(XTY, 0, sizeof(XTY));
-    for (int i = 0; i < nf; i++)
-        for (int j = 0; j < nf; j++)
-            for (int k = 0; k < n; k++)
-                XTX[i][j] += X[k][i] * X[k][j];
-    for (int i = 0; i < nf; i++) XTX[i][i] += ridge;
-    if (!mat_inv(XTX, XTXi, nf)) return;
-    for (int i = 0; i < nf; i++)
-        for (int k = 0; k < n; k++)
-            XTY[i] += X[k][i] * Y_reg[k];
-    for (int i = 0; i < nf; i++) {
-        W[i] = 0.0;
-        for (int k = 0; k < nf; k++)
-            W[i] += XTXi[i][k] * XTY[k];
-    }
-}
+        double diag = M[pivot * size + col];
+        if (diag == 0.0 || diag != diag) return 0;  // matrice singuliere ou NaN
 
-/* Regression gradient descent (LMS) : W += alpha * err * x */
-void gradient_descent(double X[MAX_SAMP][MAX_FEAT], double Y_reg[MAX_SAMP],
-                      int n, int nf, double alpha, int max_ep, double W[MAX_FEAT])
-{
-    for (int i = 0; i < MAX_FEAT; i++) W[i] = 0.0;
-    for (int ep = 0; ep < max_ep; ep++) {
-        double mse = 0.0;
-        for (int i = 0; i < n; i++) {
-            double pred = 0.0;
-            for (int k = 0; k < nf; k++) pred += W[k] * X[i][k];
-            double err = Y_reg[i] - pred;
-            mse += err * err;
-            for (int k = 0; k < nf; k++)
-                W[k] += alpha * err * X[i][k];
+        if (pivot != col) {
+            for (int k = 0; k < size; k++) {
+                double tmp = M[col * size + k];
+                M[col * size + k] = M[pivot * size + k];
+                M[pivot * size + k] = tmp;
+                tmp = inv[col * size + k];
+                inv[col * size + k] = inv[pivot * size + k];
+                inv[pivot * size + k] = tmp;
+            }
         }
-        mse /= n;
-        if (mse < 1e-10) return;
+
+        diag = M[col * size + col];
+        for (int k = 0; k < size; k++) {
+            M[col * size + k] /= diag;
+            inv[col * size + k] /= diag;
+        }
+
+        for (int row = 0; row < size; row++) {
+            if (row == col) continue;
+            double factor = M[row * size + col];
+            for (int k = 0; k < size; k++) {
+                M[row * size + k] -= factor * M[col * size + k];
+                inv[row * size + k] -= factor * inv[col * size + k];
+            }
+        }
+    }
+    return 1;
+}
+
+void pseudo_inverse(double *X, double *Y, int n, int nf, int nc, double *W)
+{
+    memset(W, 0, nf * nc * sizeof(double));
+
+    if (nf <= n) {
+        double *XtX = (double *)calloc(nf * nf, sizeof(double));
+        double *XtY = (double *)calloc(nf * nc, sizeof(double));
+        double *inv = (double *)calloc(nf * nf, sizeof(double));
+        for (int i = 0; i < nf; i++) inv[i * nf + i] = 1.0;
+
+        for (int i = 0; i < nf; i++)
+            for (int j = 0; j < nf; j++)
+                for (int k = 0; k < n; k++)
+                    XtX[i * nf + j] += X[k * nf + i] * X[k * nf + j];
+
+        for (int i = 0; i < nf; i++)
+            for (int j = 0; j < nc; j++)
+                for (int k = 0; k < n; k++)
+                    XtY[i * nc + j] += X[k * nf + i] * Y[k * nc + j];
+
+        if (invert_matrix(XtX, nf, inv)) {
+            for (int i = 0; i < nf; i++)
+                for (int j = 0; j < nc; j++)
+                    for (int k = 0; k < nf; k++)
+                        W[i * nc + j] += inv[i * nf + k] * XtY[k * nc + j];
+        }
+
+        free(XtX); free(XtY); free(inv);
+
+    } else {
+        // Forme duale : plus de features que d'exemples, Xt X serait singuliere.
+        // On passe par X Xt (n x n), beaucoup plus petit et inversible.
+        double *XXt = (double *)calloc(n * n, sizeof(double));
+        double *inv = (double *)calloc(n * n, sizeof(double));
+        for (int i = 0; i < n; i++) inv[i * n + i] = 1.0;
+
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+                for (int k = 0; k < nf; k++)
+                    XXt[i * n + j] += X[i * nf + k] * X[j * nf + k];
+
+        if (invert_matrix(XXt, n, inv)) {
+            // alpha = (X Xt)^-1 Y   (taille n x nc)
+            double *alpha = (double *)calloc(n * nc, sizeof(double));
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < nc; j++)
+                    for (int k = 0; k < n; k++)
+                        alpha[i * nc + j] += inv[i * n + k] * Y[k * nc + j];
+
+            // W = Xt . alpha   (taille nf x nc)
+            for (int i = 0; i < nf; i++)
+                for (int j = 0; j < nc; j++)
+                    for (int k = 0; k < n; k++)
+                        W[i * nc + j] += X[k * nf + i] * alpha[k * nc + j];
+
+            free(alpha);
+        }
+
+        free(XXt); free(inv);
     }
 }
 
+int predict(double *W, double *x, int nf, int nc) {
+    return predict_internal(W, x, nf, nc);
+}
+
+double predict_regression(double *W, double *x, int nf, int output_idx, int nc) {
+    double s = 0.0;
+    for (int k = 0; k < nf; k++)
+        s += W[k * nc + output_idx] * x[k];
+    return s;
+}
