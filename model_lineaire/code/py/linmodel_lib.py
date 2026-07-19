@@ -13,6 +13,10 @@ def _find_c_source() -> Path:
         p / "model_lineaire.c" for p in [cwd, *cwd.parents]
     ] + [
         p / "model_lineaire" / "model_lineaire.c" for p in [cwd, *cwd.parents]
+    ] + [
+        p / "model_lineaire" / "code" / "C" / "model_lineaire.c" for p in [cwd, *cwd.parents]
+    ] + [
+        p / "code" / "C" / "model_lineaire.c" for p in [cwd, *cwd.parents]
     ]
     c_src = next((c for c in candidates if c.exists()), None)
     if c_src is None:
@@ -20,15 +24,40 @@ def _find_c_source() -> Path:
     return c_src
 
 
+def _find_lib_dir() -> Path:
+    """Trouve le dossier lib/ pour y mettre le .so compilé"""
+    cwd = Path.cwd().resolve()
+    candidates = [
+        p / "model_lineaire" / "code" / "lib" for p in [cwd, *cwd.parents]
+    ] + [
+        p / "code" / "lib" for p in [cwd, *cwd.parents]
+    ] + [
+        p / "lib" for p in [cwd, *cwd.parents]
+    ]
+    lib_dir = next((c for c in candidates if c.exists()), None)
+    if lib_dir is None:
+        # Crée le dossier lib/ à côté du dossier C/
+        c_src = _find_c_source()
+        lib_dir = c_src.parent.parent / "lib"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+    return lib_dir
+
+
 def _load_lib():
     c_src = _find_c_source()
-    tmp_so = Path("/tmp") / f"model_lineaire_{int(time.time())}.so"
-    cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", str(tmp_so), str(c_src), "-lm"]
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise RuntimeError(f"Compilation C impossible:\n{res.stderr}")
+    lib_dir = _find_lib_dir()
+    so_path = lib_dir / "model_lineaire.so"
+    
+    # Recompile si le .so n'existe pas ou si le .c est plus récent
+    need_compile = not so_path.exists() or (c_src.stat().st_mtime > so_path.stat().st_mtime)
+    
+    if need_compile:
+        cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", str(so_path), str(c_src), "-lm"]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(f"Compilation C impossible:\n{res.stderr}")
 
-    lib = ctypes.CDLL(str(tmp_so))
+    lib = ctypes.CDLL(str(so_path))
     
     # Signatures C (pointeurs 1D, pas de taille max)
     lib.rosenblatt.argtypes = [
