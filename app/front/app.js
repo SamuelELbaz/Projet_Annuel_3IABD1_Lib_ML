@@ -10,7 +10,7 @@ const DUREES = {
     fonduSprite:   600,   // doit rester aligné sur --duree-fondu-sprite (CSS)
     lancement:     1400,  // temps où il incante avant qu'on interroge le modèle
     retourCiel:    900,   // le ciel se recale sur le plein jour
-    pointing:      5000,  // temps où il désigne sa vision
+    pointing:      1600,  // pose maintenue après le verdict, avant retour au repos
     frappe:        28,    // ms par caractère du typewriter
     pauseReplique: 420,   // silence entre deux répliques
 };
@@ -57,10 +57,6 @@ const attendre = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* ---------------------------------------------------------
    4. Le ciel
-
-   Au repos le ciel est au grand jour. Pendant le sort il
-   clignote (keyframes CSS). Pour en sortir sans à-coup on
-   fige l'opacité atteinte, puis on la ramène à zéro.
    --------------------------------------------------------- */
 
 function declencherClignotement() {
@@ -119,41 +115,134 @@ function ajouterReplique(texte, auteur = "oracle") {
 /* ---------------------------------------------------------
    6. La prédiction
 
-   >>> C'EST ICI QUE TU BRANCHERAS TON MODÈLE. <<<
-   Remplace le corps de predire() par ton appel réseau.
-   Contrat attendu : { etiquette: string, confiance: number }
-   avec confiance entre 0 et 1.
+   Branchée sur l'API Flask : POST /predict, champ multipart
+   "image" (même origine, Flask sert le front et l'API). Le
+   back répond avec les 4 modèles d'un coup :
+     { resultats: { PMC:      {classe, scores},
+                    Lineaire: {classe, scores},
+                    SVM:      {classe, scores},
+                    RBF:      {classe, scores} } }
+   où scores == { compost, dechets_chimiques, recyclable }.
+
+   L'oracle ne montre qu'une voix : on fond les 4 en une seule
+   distribution (moyenne des softmax) et on en tire l'étiquette
+   gagnante + sa confiance dans [0, 1].
+
+   Contrat rendu au reste du code : { etiquette, confiance }.
    --------------------------------------------------------- */
 
-const ETIQUETTES_FACTICES = [
-    "un chat", "un chien", "une théière", "un dirigeable", "un bol de soupe",
-    "une fougère", "un accordéon", "une truite", "un lampadaire", "un scarabée",
-];
+// De la classe brute du modèle vers quelque chose que l'oracle peut prononcer.
+const ETIQUETTES_LISIBLES = {
+    compost:           "du compost",
+    dechets_chimiques: "des déchets chimiques",
+    recyclable:        "des déchets recyclables",
+};
 
-async function predire(fichier) {
-    await attendre(1500 + Math.random() * 2200); // latence simulée
-
-    return {
-        etiquette: ETIQUETTES_FACTICES[Math.floor(Math.random() * ETIQUETTES_FACTICES.length)],
-        confiance: 0.4 + Math.random() * 0.2, // 40–60 %, comme le vrai modèle
-    };
+function softmax(valeurs) {
+    const max   = Math.max(...valeurs);
+    const exps  = valeurs.map((v) => Math.exp(v - max));
+    const somme = exps.reduce((a, b) => a + b, 0);
+    return exps.map((e) => e / somme);
 }
 
-/** Le sorcier n'annonce pas un score : il l'habite. */
-function formulerVision({ etiquette, confiance }) {
-    const pourcentage = Math.round(confiance * 100);
+/*
+RAPPEL LES LOULOUS
 
-    const preambules = [
-        `Je vois… ${etiquette}.`,
-        `L'orbe s'éclaircit. ${etiquette.charAt(0).toUpperCase() + etiquette.slice(1)}.`,
-        `Voilà. ${etiquette.charAt(0).toUpperCase() + etiquette.slice(1)}, sans le moindre doute. Enfin, presque.`,
-    ];
+Les 4 modèles ne notent pas sur la même échelle (le SVM peut
+   sortir des scores négatifs, la RBF des sommes de gaussiennes…).
+   On ramène chacun à une distribution avec un softmax, puis on
+   moyenne : mélange d'experts, chaque modèle vote avec une
+   distribution complète plutôt qu'un simple gagnant.
 
-    const aveux = confiance < 0.5
-        ? `Je n'en suis sûr qu'à ${pourcentage} %. Ne mise rien là-dessus.`
-        : `${pourcentage} % de certitude. C'est un bon jour.`;
+*/
+function agregerModeles(resultats) {
+    const classes = [];
+    for (const r of Object.values(resultats)) {
+        if (!r) continue; // un modèle peut être "non disponible" (null)
+        for (const c of Object.keys(r.scores)) {
+            if (!classes.includes(c)) classes.push(c);
+        }
+    }
 
-    return `${preambules[Math.floor(Math.random() * preambules.length)]} ${aveux}`;
+    const cumul = new Array(classes.length).fill(0);
+    let nbModeles = 0;
+    for (const r of Object.values(resultats)) {
+        if (!r) continue;
+        const scores = classes.map((c) => r.scores[c] ?? 0);
+        softmax(scores).forEach((p, i) => (cumul[i] += p));
+        nbModeles++;
+    }
+    if (nbModeles === 0) throw new Error("Aucun modèle n'a répondu.");
+
+    const moyenne = cumul.map((v) => v / nbModeles);
+    let idx = 0;
+    for (let i = 1; i < moyenne.length; i++) {
+        if (moyenne[i] > moyenne[idx]) idx = i;
+    }
+
+    return { etiquette: classes[idx], confiance: moyenne[idx] };
+}
+
+// mapping nom intenre du modèle -> nom lisible en txt
+const NOMS_MODELES = {
+    PMC:      "le PMC",
+    Lineaire: "le linéaire",
+    SVM:      "le SVM",
+    RBF:      "la RBF",
+};
+
+const capitaliser = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Classe prédite + confiance | un model
+function probaModele(r) {
+    const classes = Object.keys(r.scores);
+    const probs   = softmax(classes.map((c) => r.scores[c]));
+    let idx = 0;
+    for (let i = 1; i < probs.length; i++) if (probs[i] > probs[idx]) idx = i;
+    return { etiquette: classes[idx], confiance: probs[idx] };
+}
+
+async function predire(fichier) {
+    const donnees = new FormData();
+    donnees.append("image", fichier);
+
+    const reponse = await fetch("/predict", { method: "POST", body: donnees });
+    if (!reponse.ok) throw new Error(`Le serveur a répondu ${reponse.status}.`);
+
+    const data = await reponse.json();
+    if (data.erreur) throw new Error(data.erreur);
+
+    const resultats = data.resultats;
+
+    // Une ligne par modèle classe predict + confiance %
+    const parModele = [];
+    for (const [cle, r] of Object.entries(resultats)) {
+        if (!r) continue; // modèle non disponible (null)
+        const { etiquette, confiance } = probaModele(r);
+        parModele.push({
+            modele:    NOMS_MODELES[cle] ?? cle,
+            etiquette: ETIQUETTES_LISIBLES[etiquette] ?? etiquette,
+            confiance,
+        });
+    }
+    if (parModele.length === 0) throw new Error("Aucun modèle n'a répondu.");
+
+    // La synthèse des 4, pour le mot de la fin.
+    const v = agregerModeles(resultats);
+    const verdict = {
+        etiquette: ETIQUETTES_LISIBLES[v.etiquette] ?? v.etiquette,
+        confiance: v.confiance,
+    };
+
+    return { parModele, verdict };
+}
+
+// Le mot de la fin -> avis du sorcier magique
+function formulerVerdict({ etiquette, confiance }) {
+    const pct = Math.round(confiance * 100);
+    return confiance < 0.4
+        ? `Moi, je penche pour ${etiquette}, mais à ${pct} % seulement. Ne mise rien là-dessus.`
+        : `Tout bien pesé, je dis ${etiquette}. ${pct} % de certitude — c'est un bon jour.`;
 }
 
 /* ---------------------------------------------------------
@@ -164,7 +253,7 @@ async function lancerSort(fichier) {
     if (sortEnCours) return;
     sortEnCours = true;
 
-    // 1. standing -> sort, le ciel se met à vaciller
+    // 1. standing -> sort -> zerqzfqezf du ciel
     afficherSprite(ETATS.SORT);
     sorcier.classList.add("sorcier--incante");
     declencherClignotement();
@@ -186,11 +275,18 @@ async function lancerSort(fichier) {
         return;
     }
 
-    // 3. réponse reçue -> pointing
+    // 3. réponse reçue -> pointing -> 4 visions + verdict
     sorcier.classList.remove("sorcier--incante");
     apaiserCiel();
     afficherSprite(ETATS.POINTING);
-    ajouterReplique(formulerVision(vision));
+
+    ajouterReplique("Quatre regards se posent sur ton offrande. Voici ce qu'ils disent.");
+    for (const v of vision.parModele) {
+        const pct = Math.round(v.confiance * 100);
+        ajouterReplique(`${capitaliser(v.modele)} y voit ${v.etiquette} — ${pct} %.`);
+    }
+    // ajouterReplique met en file : on attend la fin de TOUTE la tirade avant de bouger.
+    await ajouterReplique(formulerVerdict(vision.verdict));
 
     await attendre(DUREES.pointing);
 

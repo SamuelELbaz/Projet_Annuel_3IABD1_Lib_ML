@@ -7,11 +7,13 @@ import io
 import tempfile
 import os
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 import numpy as np
 
 BASE_DIR        = Path(__file__).parent
+FRONT_DIR       = BASE_DIR.parent / "front"   # app/front, frere de app/back
+CWD_LANCEMENT   = os.getcwd()                 # d'ou python a ete lance (pour le reloader Flask)
 MODELE_PMC      = BASE_DIR / "pmc" / "meilleur_modele.txt"
 MODELE_LINEAIRE = BASE_DIR / "model_lineaire" / "notebook" / "meilleur_modele_lineaire.txt"
 MODELE_SVM      = BASE_DIR / "svm" / "svm_final_dechets.txt"
@@ -24,7 +26,9 @@ sys.path.insert(0, str(PMC_LIB))
 from pmc import PMC
 
 sys.path.insert(0, str(LINMODEL_LIB))
+os.chdir(str(LINMODEL_LIB))   # linmodel_lib compile model_lineaire.c depuis le cwd
 from linmodel_lib import LinearModel
+os.chdir(str(BASE_DIR))
 
 sys.path.insert(0, str(SVM_LIB))
 from svm_lib import SVM_OVR
@@ -42,7 +46,13 @@ TARGET_SIZE = (32, 32)
 print("Chargement des modeles...")
 
 model_pmc      = PMC.load(str(MODELE_PMC))
+
+# La lib C du modele lineaire est compilee a la volee depuis le cwd :
+# on repasse dans notebook/ le temps du chargement.
+os.chdir(str(LINMODEL_LIB))
 model_lineaire = LinearModel.load(str(MODELE_LINEAIRE))
+os.chdir(str(BASE_DIR))
+
 model_svm      = SVM_OVR.load(str(MODELE_SVM))
 
 print("Modeles prets.")
@@ -59,9 +69,25 @@ def scores_vers_dict(scores):
     return {CLASSES[i]: round(float(scores[i]), 4) for i in range(len(CLASSES))}
 
 
+# --- Front ApeupreH : servi depuis app/front (frere de app/back) ---
 @app.route("/")
 def index():
-    return open(BASE_DIR / "index.html", encoding="utf-8").read()
+    return send_from_directory(str(FRONT_DIR), "indexMagique.htm")
+
+
+@app.route("/app.js")
+def app_js():
+    return send_from_directory(str(FRONT_DIR), "app.js")
+
+
+@app.route("/style.css")
+def style_css():
+    return send_from_directory(str(FRONT_DIR), "style.css")
+
+
+@app.route("/assets/<path:nom>")
+def assets(nom):
+    return send_from_directory(str(FRONT_DIR / "assets"), nom)
 
 
 @app.route("/predict", methods=["POST"])
@@ -118,4 +144,8 @@ def predict():
 
 
 if __name__ == "__main__":
+    # Les os.chdir ci-dessus laissent le cwd sur back/. Le reloader de Flask
+    # relance le script via le chemin tape au lancement (ex: .\app\back\api.py),
+    # qu'il resout depuis le cwd -> on le remet a sa valeur de depart.
+    os.chdir(CWD_LANCEMENT)
     app.run(debug=True, port=5000)
