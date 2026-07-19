@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug svm.exe (cppdbg)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\svm.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": true,
+      "MIMode": "gdb",
+      "preLaunchTask": "Build (GCC)"
+    },
+    {
+      "name": "Debug svm.exe (cppvsdbg)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\svm.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": true,
+      "preLaunchTask": "Build (MSVC)"
+    }
+  ]
+}

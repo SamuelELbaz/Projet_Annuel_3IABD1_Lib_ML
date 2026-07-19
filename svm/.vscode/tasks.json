@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build (GCC)",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "main.c",
+        "svm.c",
+        "-o",
+        "svm.exe",
+        "-lm"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Run (GCC)",
+      "type": "shell",
+      "command": ".\\svm.exe",
+      "dependsOn": "Build (GCC)",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Build (MSVC)",
+      "type": "shell",
+      "command": "cl",
+      "args": [
+        "/nologo",
+        "/W4",
+        "/EHsc",
+        "main.c",
+        "svm.c",
+        "/Fe:svm.exe"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Run (MSVC)",
+      "type": "shell",
+      "command": ".\\svm.exe",
+      "dependsOn": "Build (MSVC)",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Build (Shared Lib pour Python/ctypes)",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-O2",
+        "-fPIC",
+        "-shared",
+        "svm.c",
+        "-o",
+        "svm.so",
+        "-lm"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  ]
+}
