@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Classification de dechets</title>
+</head>
+<body>
+
+    <h1>Classification de dechets</h1>
+
+    <form id="form-upload">
+        <input type="file" id="image-input" accept="image/*">
+        <button type="submit">Classifier</button>
+    </form>
+
+    <br>
+    <img id="apercu" src="" alt=""
+         style="display:none; max-width:400px; max-height:400px; object-fit:contain;">
+
+    <br><br>
+    <div id="resultats"></div>
+
+    <script>
+        // Apercu de l'image selectionnee
+        document.getElementById("image-input").addEventListener("change", function () {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const apercu   = document.getElementById("apercu");
+                apercu.src     = e.target.result;
+                apercu.style.display = "block";
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Envoi de l'image a l'API
+        document.getElementById("form-upload").addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById("image-input");
+            if (!fileInput.files[0]) {
+                document.getElementById("resultats").innerHTML =
+                    "Veuillez selectionner une image.";
+                return;
+            }
+
+            document.getElementById("resultats").innerHTML =
+                "Classification en cours...";
+
+            const formData = new FormData();
+            formData.append("image", fileInput.files[0]);
+
+            fetch("/predict", { method: "POST", body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.erreur) {
+                        document.getElementById("resultats").innerHTML =
+                            "Erreur : " + data.erreur;
+                        return;
+                    }
+
+                    // Affichage des resultats de chaque modele
+                    const res = data.resultats;
+                    let html  = "<h2>Resultats</h2>";
+                    html     += "<table border='1' cellpadding='6'>";
+                    html     += "<tr><th>Modele</th><th>Classe predite</th>"
+                              + "<th>Scores</th></tr>";
+
+                    for (const [nom, r] of Object.entries(res)) {
+                        if (r === null) {
+                            // Modele pas encore disponible
+                            html += `<tr>
+                                <td>${nom}</td>
+                                <td colspan='2'><i>Non disponible</i></td>
+                            </tr>`;
+                        } else {
+                            // Scores formates
+                            let scoresHtml = "";
+                            for (const [classe, score] of Object.entries(r.scores)) {
+                                scoresHtml += `${classe} : ${score}<br>`;
+                            }
+                            html += `<tr>
+                                <td>${nom}</td>
+                                <td><b>${r.classe}</b></td>
+                                <td>${scoresHtml}</td>
+                            </tr>`;
+                        }
+                    }
+
+                    html += "</table>";
+                    document.getElementById("resultats").innerHTML = html;
+                })
+                .catch(err => {
+                    document.getElementById("resultats").innerHTML =
+                        "Erreur reseau : " + err;
+                });
+        });
+    </script>
+
+</body>
+</html>
