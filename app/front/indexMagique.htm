@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApeupreH — l'oracle approximatif</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ===== Décor : les deux fonds superposés, le nocturne se dévoile pendant le sort ===== -->
+    <div class="scene" id="scene">
+        <div class="fond fond--jour"></div>
+        <div class="fond fond--nuit" id="fondNuit"></div>
+    </div>
+
+    <!-- ===== Le sorcier : c'est lui la zone de dépôt ===== -->
+    <div class="sorcier" id="sorcier" role="button" tabindex="0"
+            aria-label="Déposer une image entre les mains d'ApeupreH">
+        <div class="aura" aria-hidden="true"></div>
+        <img src="assets/wizardStanding.png" alt="ApeupreH au repos, sa boule de cristal entre les mains" class="sprite sprite--visible" data-etat="repos">
+        <img src="assets/wizardSort.png" alt="ApeupreH incante, les bras levés" class="sprite" data-etat="sort">
+        <img src="assets/wizardPointing.png" alt="ApeupreH désigne sa vision" class="sprite" data-etat="pointing">
+        <p class="sorcier__invite" id="invite">Dépose une image ici</p>
+    </div>
+
+    <input type="file" id="champFichier" accept="image/*" hidden>
+
+    <!-- ===== L'offrande : l'image confiée au sorcier ===== -->
+    <figure class="offrande offrande--vide" id="offrande">
+        <img src="" alt="Image confiée à l'oracle" id="offrandeImage">
+        <figcaption>Ton offrande</figcaption>
+        <button type="button" class="offrande__retirer" id="retirerOffrande"
+                aria-label="Reprendre l'offrande">×</button>
+    </figure>
+
+    <!-- ===== La barre de discussion ===== -->
+    <section class="dialogue" aria-label="Discussion avec ApeupreH">
+        <header class="dialogue__plaque">
+            <span class="dialogue__nom">ApeupreH</span>
+            <span class="dialogue__titre">oracle · précision 40–60 %</span>
+        </header>
+
+        <div class="dialogue__flux" id="flux" aria-live="polite"></div>
+
+        <div class="dialogue__saisie">
+            <label for="champTexte" class="dialogue__chevron" aria-hidden="true">&gt;</label>
+            <input type="text" id="champTexte" autocomplete="off"
+                   placeholder="Parle à l'oracle…" aria-label="Ton message">
+            <button type="button" id="boutonEnvoyer">Parler</button>
+        </div>
+    </section>
+
+    <script src="app.js"></script>
+</body>
+</html>
