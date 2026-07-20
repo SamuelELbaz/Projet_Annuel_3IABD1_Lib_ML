@@ -2,7 +2,9 @@ import ctypes
 import numpy as np
 import os
 
-_lib = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "pmc.dll"))
+import sys
+_ext = "pmc.dll" if sys.platform == "win32" else "pmc.so"
+_lib = ctypes.CDLL(os.path.join(os.path.dirname(__file__), _ext))
 
 _lib.init_pmc.argtypes = [
     ctypes.POINTER(ctypes.c_int),  # layer_sizes

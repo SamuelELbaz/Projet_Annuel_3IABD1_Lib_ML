@@ -3,7 +3,9 @@ import numpy as np
 import os
 
 # Charger la bibliothèque partagée
-_lib_path = os.path.join(os.path.dirname(__file__), "svm.dll")
+import sys
+_nom = "svm.dll" if sys.platform == "win32" else "svm.so"
+_lib_path = os.path.join(os.path.dirname(__file__), _nom)
 _lib = ctypes.CDLL(_lib_path)
 
 SVM_KERNEL_LINEAR = 0
